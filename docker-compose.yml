@@ -1,0 +1,37 @@
+services:
+  frontend:
+    build:
+      context: .devcontainer/frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./src/frontend:/workspace/frontend
+      # Keep node_modules inside the container — avoids Windows filesystem performance issues
+      - frontend_node_modules:/workspace/frontend/node_modules
+    ports:
+      # Vite dev server — must be started with --host flag (or server.host: true in vite.config.js)
+      # so it binds to 0.0.0.0 inside the container and is reachable over Docker's network.
+      - "5173:5173"
+    networks:
+      - app-network
+    command: sleep infinity
+
+  backend:
+    build:
+      context: .devcontainer/backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./src/backend:/workspace/backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+    networks:
+      - app-network
+    command: sleep infinity
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  frontend_node_modules:
