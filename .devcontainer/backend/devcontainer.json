@@ -1,0 +1,35 @@
+{
+  "name": "Backend (Django)",
+  "dockerComposeFile": "../../docker-compose.yml",
+  "service": "backend",
+  "workspaceFolder": "/workspace/backend",
+
+  // Start both services so the frontend is available for integration testing
+  "runServices": ["frontend", "backend"],
+  "shutdownAction": "stopCompose",
+
+  // Forward both ports so the backend dev can also inspect the frontend if needed
+  "forwardPorts": [8000, 3000],
+  "portsAttributes": {
+    "8000": { "label": "Django API" },
+    "3000": { "label": "React Dev Server" }
+  },
+
+  // Install from requirements.txt if it exists; safe to run before project is scaffolded
+  "postCreateCommand": "[ -f requirements.txt ] && pip install -r requirements.txt || true",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "batisteo.vscode-django"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true
+      }
+    }
+  }
+}
