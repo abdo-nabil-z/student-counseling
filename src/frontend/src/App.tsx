@@ -120,12 +120,91 @@
 // }
 
 // export default App
-function App() {
+// function App() {
+//   return (
+//     <main>
+//       <h1>hello world</h1>
+//     </main>
+//   );
+// }
+
+// export default App;
+type Appointment = {
+  id: number;
+  studentName: string;
+  matriculationNumber: string;
+  studyProgram: string;
+  date: string;
+  time: string;
+  studyPlanStatus: "Uploaded" | "Missing";
+  transcriptStatus: "Uploaded" | "Missing";
+  minutesStatus: "Not uploaded" | "Uploaded";
+};
+
+const appointments: Appointment[] = [
+  {
+    id: 1,
+    studentName: "Max Müller",
+    matriculationNumber: "123456",
+    studyProgram: "Computer Science",
+    date: "15.10.2026",
+    time: "10:00 - 10:30",
+    studyPlanStatus: "Uploaded",
+    transcriptStatus: "Uploaded",
+    minutesStatus: "Not uploaded",
+  },
+  {
+    id: 2,
+    studentName: "Anna Weber",
+    matriculationNumber: "654321",
+    studyProgram: "Information Systems",
+    date: "15.10.2026",
+    time: "10:30 - 11:00",
+    studyPlanStatus: "Missing",
+    transcriptStatus: "Missing",
+    minutesStatus: "Not uploaded",
+  },
+];
+
+function CounselorDashboard() {
   return (
     <main>
-      <h1>hello world</h1>
+      <h1>Counselor Dashboard</h1>
+      <p>Here you can see your assigned counseling appointments.</p>
+
+      <table border={1} cellPadding={8}>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Study Program</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Study Plan</th>
+            <th>Transcript</th>
+            <th>Minutes</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {appointments.map((appointment) => (
+            <tr key={appointment.id}>
+              <td>{appointment.studentName}</td>
+              <td>{appointment.studyProgram}</td>
+              <td>{appointment.date}</td>
+              <td>{appointment.time}</td>
+              <td>{appointment.studyPlanStatus}</td>
+              <td>{appointment.transcriptStatus}</td>
+              <td>{appointment.minutesStatus}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </main>
   );
+}
+
+function App() {
+  return <CounselorDashboard />;
 }
 
 export default App;
