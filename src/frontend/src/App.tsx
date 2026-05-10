@@ -129,6 +129,8 @@
 // }
 
 // export default App;
+import { useEffect, useState } from "react";
+
 type Appointment = {
   id: number;
   studentName: string;
@@ -167,10 +169,29 @@ const appointments: Appointment[] = [
 ];
 
 function CounselorDashboard() {
+  const [echoData, setEchoData] = useState<string | null>(null);
+  const [echoError, setEchoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/counselors/echo-data/")
+      .then((res) => res.json())
+      .then((data) => setEchoData(JSON.stringify(data)))
+      .catch((err) => setEchoError(String(err)));
+  }, []);
+
   return (
     <main>
       <h1>Counselor Dashboard</h1>
       <p>Here you can see your assigned counseling appointments.</p>
+
+      <p>
+        <strong>Backend connection check:</strong>{" "}
+        {echoError
+          ? `Error: ${echoError}`
+          : echoData !== null
+            ? echoData
+            : "Loading…"}
+      </p>
 
       <table border={1} cellPadding={8}>
         <thead>
