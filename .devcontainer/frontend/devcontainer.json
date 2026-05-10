@@ -8,12 +8,12 @@
   "runServices": ["frontend", "backend"],
   "shutdownAction": "stopCompose",
 
-  // Forward both ports so the frontend dev can reach the backend API in their browser
-  // Vite dev server default port is 5173
-  "forwardPorts": [5173, 8000],
+
+  "overrideCommand": true,
+
+  "forwardPorts": [5173],
   "portsAttributes": {
-    "5173": { "label": "Vite Dev Server" },
-    "8000": { "label": "Django API" }
+    "5173": { "label": "Vite Dev Server" }
   },
 
   // Install base dependencies then all required libraries.
