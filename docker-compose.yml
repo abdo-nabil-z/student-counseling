@@ -13,7 +13,7 @@ services:
       - "5173:5173"
     networks:
       - app-network
-    command: sleep infinity
+    command: sh -c "npm install && npm run dev; sleep infinity"
 
   backend:
     build:
@@ -23,11 +23,11 @@ services:
       - ./src/backend:/workspace/backend
     ports:
       - "8000:8000"
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings
+    # environment:
+      #- DJANGO_SETTINGS_MODULE=config.settings
     networks:
       - app-network
-    command: sleep infinity
+    command: sh -c "pip install -r requirements.txt && python manage.py runserver 0.0.0.0:8000; sleep infinity"
 
 networks:
   app-network:

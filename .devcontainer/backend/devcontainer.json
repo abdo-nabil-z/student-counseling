@@ -8,6 +8,11 @@
   "runServices": ["frontend", "backend"],
   "shutdownAction": "stopCompose",
 
+  // Override the docker-compose command for THIS service with sleep infinity.
+  // This lets the dev start/stop/view logs of runserver manually in the terminal.
+  // The frontend service still runs its docker-compose command (npm run dev) automatically.
+  "overrideCommand": true,
+
   // Forward both ports so the backend dev can also inspect the frontend if needed
   "forwardPorts": [8000, 3000],
   "portsAttributes": {
