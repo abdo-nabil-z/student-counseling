@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-#9bl(t(r7txg1(^1po262bd!@5v5)ylut$78s2%hqn&-$s@dui'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["backend", "localhost"]
 
@@ -39,9 +39,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    'drf_spectacular',
 
     # Custom apps
     'counselors',
+    'students',
+    'session.apps.SessionConfig',
 ]
 
 MIDDLEWARE = [
@@ -103,6 +106,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Counsultation backend APIs',
+    'DESCRIPTION': 'API documentation',
+    'VERSION': '0.0.1',
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

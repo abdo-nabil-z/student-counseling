@@ -33,7 +33,12 @@ for the pages:
 ```bash
 http://localhost:8000/counselors/
 ```
-and for the api calls:
+and for the api Documentation:
+in Swagger UI:
 ```bash
-http://localhost:8000/api/counselors/echo-data/
+http://localhost:8000/api/docs/
+```
+in ReDoc
+```bash
+http://localhost:8000/api/redoc/
 ```
