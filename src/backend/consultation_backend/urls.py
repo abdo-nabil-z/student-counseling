@@ -16,13 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
     # Apps Urls
     path('admin/', admin.site.urls),
     path('counselors/', include('counselors.urls', namespace='counselors')),
+    path('students/', include('students.urls', namespace='students')),
+    path('session/',include('session.urls', namespace='session')),
 
     # REST Framwork Urls
     path('api/counselors/', include('counselors.api.urls', namespace='counselors_api')),
+    path('api/students/', include('students.api.urls', namespace='students_api')),
+    path('api/session/', include('session.api.urls', namespace='session_api')),
+
+
+    # documentation urls
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
 ]

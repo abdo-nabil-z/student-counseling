@@ -1,11 +1,11 @@
 from django.urls import path
 
-from . import views
+from counselors.views import home
 
 app_name = 'counselors'
 
-#  clinic/   or   clinic:
+#  counselors/   or   counselors:
 
 urlpatterns = [
-    path('', views.home ,name='home'),
+    path('', home ,name='home'),
 ]
