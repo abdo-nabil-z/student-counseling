@@ -15,6 +15,13 @@ The student data contains the following information:
 * Credit points (CP) achieved so far
 
 
+NOTE:
+- No fixed format
+- Copy Paste is fine
+
+Feature IDEA: 
+- Open the file as a table and select which column responds to which field
+
 ---
 
 ## 2. Planning Counseling Capacity
@@ -33,6 +40,15 @@ For each counselor, the following information is maintained:
 * Additional CC recipients (e.g., secretary)
 * Available time slot(s)
 
+
+
+
+Feature:
+- Persist counselors contacts
+
+
+
+
 ### Time Slot Information
 
 Each time slot contains:
@@ -41,12 +57,13 @@ Each time slot contains:
 * Start time
 * End time
 
-Typically, counselors provide availability blocks of 2–3 hours. These blocks are then split into individual 30-minute counseling appointments.
-
+Typically, counselors provide availability blocks of 2–3 hours. These blocks are then split into individual 30-minute counseling appointments. 
 
 ---
 
 ## 3. Initial Invitation Email to Students
+
+Are sent after all available time slots have been determined
 
 Students receive an email informing them about the mandatory counseling and offering available appointment windows.
 
@@ -198,12 +215,16 @@ These study plans may arrive in different formats, including:
   * that can be printed out as PDF document
   * that can be copied and pasted and converted into Markdown and then into a PDF
 
+FEATURE: Markdown online tool?
+
 Additionally, a transcript of records may be required.
 
 The transcript of records may either:
 
 * Be submitted by the student, or
 * Be provided directly by the study office
+
+
 
 ---
 
@@ -224,6 +245,8 @@ This email contains:
 * Date and time
 * Location or online meeting information
 * Name of the counselor
+
+FEAT: Selector for location (always editable)
 
 The purpose is to simplify appointment management and ensure all participants have the necessary logistical information.
 
@@ -267,6 +290,8 @@ The documentation should include:
 
 The purpose is to document that reasonable attempts were made to contact the student and offer counseling.
 
+FEAT: Backend logging service
+
 ---
 
 # Requirements for the Counseling Minutes Form
@@ -286,7 +311,7 @@ Currently, no finalized template for counseling minutes exists. However, the fol
 ### Counselor Information
 
 * Name
-* Organizational unit
+* Organizational unit: Chair (DB, Software Engineering, "Institute" etc)
 
 ### Appointment Information
 
@@ -299,18 +324,21 @@ Currently, no finalized template for counseling minutes exists. However, the fol
 
 Indication whether the session is:
 
-* First counseling session (non-binding study plan)
+* First counseling session (non-binding study plan) : There can be many!
 * Second counseling session (Binding study plan)
+
 
 ### Discussion Topics
 
 The counseling minutes should provide sections for documenting:
 
-* Summary of courses completed so far
-* Problems during studying
+* Summary of courses completed so far: (empty if transcript of records is present)
+* Problems during studying (identifying core issues, if any. Not used to shame anyone)
 * Proposed study plan and comments
 * Information about a second counseling session
 * Miscellaneous notes
+
+FEAT: Make document self-described
 
 ---
 
@@ -341,4 +369,6 @@ Therefore:
 * The layout should remain usable when printed.
 * Signature fields must be included.
 * The counselor must be able to sign the form manually after printing or digitally when completed electronically.
+
+
 
