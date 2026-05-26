@@ -6,6 +6,7 @@ from templates.api.views import (
     update_template,
     delete_template,
     purposes_list,
+    purpose_context_schema,
     set_default_template,
     generate_template_for_testmail,
 )
@@ -22,6 +23,7 @@ urlpatterns = [
     # Purposes (enum-based — no create/delete)
     path("purposes/", purposes_list, name="purposes_list"),
     path("purposes/<str:purpose>/set-default/", set_default_template, name="set_default_template"),
+    path("purposes/<str:purpose>/context-schema/", purpose_context_schema, name="purpose_context_schema"),
 
     # Generation
     path("generate/testmail/", generate_template_for_testmail, name="generate_testmail"),

@@ -4,9 +4,10 @@ from rest_framework.decorators import api_view
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter
 from rest_framework import serializers
 
-from counselors.models import AvailabilitySlot, Counselor
+from counselors.models import Counselor
 from templates.models import Template, Purpose, TemplatePurpose
 from templates.api.serializers import TemplateSerializer, TemplateRenderTestmailRequestSerializer
+from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, TestmailContext
 
 from jinja2.sandbox import SandboxedEnvironment
 
@@ -42,17 +43,16 @@ def generate_template_for_testmail(request):
         template = Template.objects.get(id=template_id)
     except Template.DoesNotExist:
         return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
-    
+
     serializer = TemplateRenderTestmailRequestSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     counselor_id = serializer.validated_data["counselor"]
-    counselor = Counselor.objects.filter(id=counselor_id).first()
-    if not counselor:
+    if not Counselor.objects.filter(id=counselor_id).exists():
         return Response({"error": "Counselor not found"}, status=status.HTTP_404_NOT_FOUND)
-    slots = list(counselor.availability_slots.filter(status=AvailabilitySlot.Status.AVAILABLE).order_by("start_time"))
-    
-    rendered = generate_from_template(template.content, counselor=counselor, slots=slots)
+
+    ctx = TestmailContext.build(counselor_id=counselor_id)
+    rendered = generate_from_template(template.content, **ctx.model_dump())
     return Response({"rendered": rendered}, status=status.HTTP_200_OK)
     
     
@@ -168,6 +168,32 @@ def purposes_list(request):
             "default_template_id": default_tp.template_id if default_tp else None,
         })
     return Response(result, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    request=None,
+    responses={
+        200: inline_serializer(
+            name="ContextSchemaResponse",
+            fields={"schema": serializers.DictField()},
+        ),
+        404: inline_serializer(name="ContextSchemaError404", fields={"error": serializers.CharField()}),
+    },
+    description=(
+        "Return the JSON Schema describing the template variables available for a purpose. "
+        "The schema is derived from the purpose's Pydantic context class and serves as the "
+        "authoritative reference for template authors."
+    ),
+)
+@api_view(["GET"])
+def purpose_context_schema(request, purpose):
+    if purpose not in PURPOSE_CONTEXT_REGISTRY:
+        return Response(
+            {"error": f"No context schema registered for purpose '{purpose}'"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    schema = PURPOSE_CONTEXT_REGISTRY[purpose].model_json_schema()
+    return Response(schema, status=status.HTTP_200_OK)
 
 
 @extend_schema(
