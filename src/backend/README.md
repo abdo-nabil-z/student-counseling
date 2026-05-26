@@ -42,3 +42,8 @@ in ReDoc
 ```bash
 http://localhost:8000/api/redoc/
 ```
+To export them to a YAML file for postman:
+```bash
+python manage.py spectacular --color --file schema.yml
+```
+the file schema.yml is created in the backend project

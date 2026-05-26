@@ -1,12 +1,13 @@
 from django.urls import path
 
-from counselors.api.views import create_counselor, create_counselor_time_slot
+from counselors.api.views import create_list_counselors, create_list_counselor_time_slot
 
 
 app_name = 'counselors_api'
 
+#  api/counselors/  or counserlors_api:
 
 urlpatterns = [
-    path("create-counselor/", create_counselor, name="create-counselor"),
-    path("create-counselor-time-slot/", create_counselor_time_slot, name="create-counselor-time-slot"),
+    path("", create_list_counselors, name="create-list-counselor"),
+    path("<int:counselor_id>/availability-blocks", create_list_counselor_time_slot, name="create-list-counselor-time-slot"),
 ]

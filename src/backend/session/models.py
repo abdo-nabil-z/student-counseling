@@ -1,7 +1,7 @@
 from django.db import models
 
 from students.models import Student
-from counselors.models import Counselor, AvailabilitySlot
+from counselors.models import Counselor, AppointmentSlot
 
 # Create your models here.
 
@@ -16,7 +16,7 @@ class CounselingSession(models.Model):
     student = models.ForeignKey(Student, on_delete=models.DO_NOTHING, related_name="counseling_session")
     counselor = models.ForeignKey(Counselor, on_delete=models.DO_NOTHING, related_name="counseling_session")
 
-    slot = models.ForeignKey(AvailabilitySlot, on_delete=models.DO_NOTHING, related_name="session")
+    slot = models.ForeignKey(AppointmentSlot, on_delete=models.DO_NOTHING, related_name="session")
 
     notes = models.CharField(max_length=300, null=True, blank=True) # URL for the directory where the pdf el saved
 

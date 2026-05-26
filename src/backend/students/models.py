@@ -1,7 +1,9 @@
 from django.db import models
+from django.core.validators import RegexValidator
 
 # Create your models here.
 
+matriculation_number_validator = RegexValidator(regex=r"^\d+$", message="Only numbers are allowed.")
 
 class Student(models.Model):
     class ContactStatus(models.TextChoices):
@@ -10,22 +12,22 @@ class Student(models.Model):
         CONFIRMED = 'confirmed', 'Confirmed'
         DIDNT_RESPOND = 'didnt_respond', "Didn't respond"
     
+    matriculation_number = models.CharField(max_length=9,unique=True, validators=[matriculation_number_validator])
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
 
-    user_id = models.CharField(max_length=10)
-    #email = models.EmailField()
+    #user_id = models.CharField(max_length=10)
+    email = models.EmailField()
     
-    #todo
+    course_of_studies = models.CharField(null=True, blank=True)
+    current_study_semester = models.PositiveBigIntegerField(null=True, blank=True)
+    credit_points = models.IntegerField(default=-1)
+    
     #study_program = models.ForeignKey(StudyProgram, on_delete=models.SET_NULL, null=True)
-
-    enrollment_date = models.DateField(null=True, blank=True)
 
     contact_status = models.CharField(max_length=30, choices=ContactStatus.choices, default= ContactStatus.NOT_CONTACTED_YET)
 
-    complete_lp = models.IntegerField(default=-1)
-    remaining_semesters = models.PositiveBigIntegerField(null=True, blank=True)
-    study_path = models.TextField(null=True, blank=True)
+    #study_path = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
