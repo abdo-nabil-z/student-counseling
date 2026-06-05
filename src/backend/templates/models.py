@@ -3,6 +3,17 @@ from django.db import models
 
 class Purpose(models.TextChoices):
     TESTMAIL = "testmail", "Test Mail"
+    STUDENT_INVITATION_MAIL = "student_invitation", "Initial Invitation (Student)"
+    STUDENT_REMINDER_MAIL = "student_reminder", "Reminder (Student)"
+    FORCED_APPOINTMENT_ASSIGNMENT_MAIL = "forced_appointment_assignment", "Forced Appointment Assignment"
+    SESSION_INVITATION_MAIL = "session_invitation", "Appointment Invitation"
+    COUNSELOR_PREPARATION_INSTRUCTION_MAIL = "counselor_preparation_instruction", "Preparation Instruction (Counselor)"
+    SESSION_CANCELLATION_MAIL = "session_cancellation", "Appointment Cancellation"
+    
+    STUDY_PLAN = "study_plan", "Study Plan"
+    SESSION_MINUTES = "session_minutes", "Session Minutes"
+    
+    
 
 
 class Template(models.Model):

@@ -1,76 +1,18 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter
-from rest_framework import serializers
 
-from counselors.models import Counselor
 from templates.models import Template, Purpose, TemplatePurpose
 from templates.api.serializers import TemplateSerializer, TemplateRenderTestmailRequestSerializer
-from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, TestmailContext
+from templates.api import schemas
+from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, TestmailContext, flatten_context_schema
+from django.shortcuts import get_object_or_404
 
-from jinja2.sandbox import SandboxedEnvironment
-
-
-def generate_from_template(template_str, **context):
-    env = SandboxedEnvironment()
-    return env.from_string(template_str).render(**context)
-
-
-
-
-@extend_schema(
-    parameters=[
-        OpenApiParameter(name="template_id", type=int, location=OpenApiParameter.QUERY, required=True, description="ID of the template to render"),
-    ],
-    request=TemplateRenderTestmailRequestSerializer,
-    responses={
-        200: inline_serializer(
-            name="TestmailRenderResponse",
-            fields={"rendered": serializers.CharField()}
-        ),
-        400: inline_serializer(name="TestmailError400", fields={"error": serializers.CharField()}),
-        404: inline_serializer(name="TestmailError404", fields={"error": serializers.CharField()}),
-    },
-    description="Render a testmail template for a counselor, injecting their available slots into the context",
-)
-@api_view(["POST"])
-def generate_template_for_testmail(request):
-    template_id = request.query_params.get("template_id")
-    if not template_id:
-        return Response({"error": "Template ID is required"}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        template = Template.objects.get(id=template_id)
-    except Template.DoesNotExist:
-        return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = TemplateRenderTestmailRequestSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    counselor_id = serializer.validated_data["counselor"]
-    if not Counselor.objects.filter(id=counselor_id).exists():
-        return Response({"error": "Counselor not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    ctx = TestmailContext.build(counselor_id=counselor_id)
-    rendered = generate_from_template(template.content, **ctx.model_dump())
-    return Response({"rendered": rendered}, status=status.HTTP_200_OK)
-    
-    
-    
-    
     
 
-@extend_schema(
-        parameters=[
-            OpenApiParameter(name="purpose", type=str, location=OpenApiParameter.QUERY, required=False, description="Filter templates by purpose key"),
-        ],
-        request=None,
-        responses={
-            200: TemplateSerializer(many=True),
-            400: inline_serializer(name="ErrorResponse", fields={"error": serializers.CharField()}),
-        },
-        description="Get templates, optionally filtered by purpose key",
-)
+
+
+@schemas.templates_by_purpose
 @api_view(["GET"])
 def templates_by_purpose(request):
     purpose_key = request.query_params.get("purpose")
@@ -84,14 +26,7 @@ def templates_by_purpose(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    request=TemplateSerializer,
-    responses={
-        201: TemplateSerializer,
-        400: inline_serializer(name="CreateTemplateError400", fields={"error": serializers.CharField()}),
-    },
-    description="Create a new template",
-)
+@schemas.create_template
 @api_view(["PUT"])
 def create_template(request):
     serializer = TemplateSerializer(data=request.data)
@@ -101,21 +36,10 @@ def create_template(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(
-    request=TemplateSerializer,
-    responses={
-        200: TemplateSerializer,
-        400: inline_serializer(name="UpdateTemplateError400", fields={"error": serializers.CharField()}),
-        404: inline_serializer(name="UpdateTemplateError404", fields={"error": serializers.CharField()}),
-    },
-    description="Partially update an existing template",
-)
+@schemas.update_template
 @api_view(["PUT"])
 def update_template(request, template_id):
-    try:
-        template = Template.objects.get(id=template_id)
-    except Template.DoesNotExist:
-        return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+    template = get_object_or_404(Template, id=template_id)
 
     serializer = TemplateSerializer(template, data=request.data, partial=True)
     if serializer.is_valid():
@@ -124,39 +48,14 @@ def update_template(request, template_id):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(
-    request=None,
-    responses={
-        204: None,
-        404: inline_serializer(name="DeleteTemplateError404", fields={"error": serializers.CharField()}),
-    },
-    description="Delete a template by ID",
-)
+@schemas.delete_template
 @api_view(["DELETE"])
 def delete_template(request, template_id):
-    try:
-        template = Template.objects.get(id=template_id)
-    except Template.DoesNotExist:
-        return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
-
+    template = get_object_or_404(Template, id=template_id)
     template.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
-@extend_schema(
-    request=None,
-    responses={
-        200: inline_serializer(
-            name="PurposeListResponse",
-            fields={
-                "key": serializers.CharField(),
-                "label": serializers.CharField(),
-                "default_template_id": serializers.IntegerField(allow_null=True),
-            },
-            many=True,
-        )
-    },
-    description="List all available purpose keys with their current default template",
-)
+@schemas.purposes_list
 @api_view(["GET"])
 def purposes_list(request):
     result = []
@@ -170,21 +69,7 @@ def purposes_list(request):
     return Response(result, status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    request=None,
-    responses={
-        200: inline_serializer(
-            name="ContextSchemaResponse",
-            fields={"schema": serializers.DictField()},
-        ),
-        404: inline_serializer(name="ContextSchemaError404", fields={"error": serializers.CharField()}),
-    },
-    description=(
-        "Return the JSON Schema describing the template variables available for a purpose. "
-        "The schema is derived from the purpose's Pydantic context class and serves as the "
-        "authoritative reference for template authors."
-    ),
-)
+@schemas.purpose_context_schema
 @api_view(["GET"])
 def purpose_context_schema(request, purpose):
     if purpose not in PURPOSE_CONTEXT_REGISTRY:
@@ -193,20 +78,10 @@ def purpose_context_schema(request, purpose):
             status=status.HTTP_404_NOT_FOUND,
         )
     schema = PURPOSE_CONTEXT_REGISTRY[purpose].model_json_schema()
-    return Response(schema, status=status.HTTP_200_OK)
+    return Response(flatten_context_schema(schema), status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    request=inline_serializer(
-        name="SetDefaultTemplateRequest",
-        fields={"template_id": serializers.IntegerField()},
-    ),
-    responses={
-        204: None,
-        400: inline_serializer(name="SetDefaultError400", fields={"error": serializers.CharField()}),
-    },
-    description="Set the default template for a purpose",
-)
+@schemas.set_default_template
 @api_view(["PUT"])
 def set_default_template(request, purpose):
     if purpose not in Purpose.values:

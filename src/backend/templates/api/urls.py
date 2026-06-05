@@ -8,7 +8,7 @@ from templates.api.views import (
     purposes_list,
     purpose_context_schema,
     set_default_template,
-    generate_template_for_testmail,
+    render_template_for_testmail,
 )
 
 app_name = 'templates_api'
@@ -26,6 +26,6 @@ urlpatterns = [
     path("purposes/<str:purpose>/context-schema/", purpose_context_schema, name="purpose_context_schema"),
 
     # Generation
-    path("generate/testmail/", generate_template_for_testmail, name="generate_testmail"),
+    path("render/testmail/", render_template_for_testmail, name="render_testmail"),
 ]
 
