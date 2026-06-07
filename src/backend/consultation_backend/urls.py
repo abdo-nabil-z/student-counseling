@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/counselors/', include('counselors.api.urls', namespace='counselors_api')),
     path('api/students/', include('students.api.urls', namespace='students_api')),
     path('api/session/', include('session.api.urls', namespace='session_api')),
+    path('api/templates/', include('templates.api.urls', namespace='templates_api')),
 
 
     # documentation urls

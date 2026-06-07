@@ -18,6 +18,10 @@
 
   // Install base dependencies then all required libraries.
   // Safe to run before the project is scaffolded (no-op if no package.json).
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
   "postCreateCommand": "[ -f package.json ] && npm install && npm install axios react-router-dom react-hook-form react-markdown @mui/material @emotion/react @emotion/styled || true",
 
   "customizations": {

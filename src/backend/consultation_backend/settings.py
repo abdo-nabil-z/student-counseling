@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'counselors',
     'students',
     'session.apps.SessionConfig',
+    'templates.apps.TemplatesConfig',
 ]
 
 MIDDLEWARE = [

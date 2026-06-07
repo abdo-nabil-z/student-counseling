@@ -47,3 +47,84 @@ To export them to a YAML file for postman:
 python manage.py spectacular --color --file schema.yml
 ```
 the file schema.yml is created in the backend project
+
+## Templates
+
+Templates use [Jinja2](https://jinja.palletsprojects.com/) syntax. Each template is linked to a **purpose**, which defines exactly which variables are available when the template is rendered.
+
+### Discovering available variables
+
+Before writing a template, fetch the flat variable list for the purpose:
+
+```
+GET /api/templates/purposes/{purpose}/context-schema/
+```
+
+Example response for `testmail`:
+
+```json
+[
+  {"path": "counselor.first_name", "type": "string"},
+  {"path": "counselor.last_name",  "type": "string"},
+  {"path": "counselor.full_name",  "type": "string"},
+  {"path": "counselor.department", "type": "string"},
+  {"path": "counselor.availability_blocks",        "type": "array"},
+  {"path": "counselor.availability_blocks[].date",       "type": "date"},
+  {"path": "counselor.availability_blocks[].start_time", "type": "time"},
+  {"path": "counselor.availability_blocks[].end_time",   "type": "time"}
+]
+```
+
+### Template syntax
+
+**Insert a variable:**
+
+```
+{{ counselor.full_name }}
+```
+
+**Conditional block:**
+
+```
+{% if counselor.availability_blocks %}
+  ...
+{% endif %}
+```
+
+**Loop over a list** — use any loop variable name; access its fields with dot notation:
+
+```
+{% for block in counselor.availability_blocks %}
+  {{ block.date }}  {{ block.start_time }} – {{ block.end_time }}
+{% endfor %}
+```
+
+### End-to-end example with "testmail"
+
+**1. Create the template** (`PUT /api/templates/create/`):
+
+```json
+{
+  "name": "Test Availability Mail",
+  "content": "Dear {{ counselor.full_name }},\n\nYour available slots:\n{% for block in counselor.availability_blocks %}\n  - {{ block.date }}  {{ block.start_time }} – {{ block.end_time }}\n{% endfor %}\n\nBest regards",
+  "purposes": ["testmail"]
+}
+```
+
+Note the `id` in the response.
+
+**2. Render a preview** (`POST /api/templates/generate/testmail/?template_id={id}`):
+
+```json
+{
+  "counselor": 1
+}
+```
+
+Response:
+
+```json
+{
+  "rendered": "Dear Dr. Jane Smith,\n\nYour available slots:\n\n  - 2026-06-10  09:00:00 – 09:30:00\n  - 2026-06-10  10:00:00 – 10:30:00\n\nBest regards"
+}
+```
