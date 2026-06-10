@@ -1,81 +1,131 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Counselor } from "../types/counselor";
-// import Modal from "../components/common/Modal";
 import Modal from "../components/common/Model";
+import api from "../api/client";
 
-const INITIAL_COUNSELORS: Counselor[] = [
-  {
-    id: 1,
-    title: "Prof. Dr.",
-    first_name: "Thomas",
-    last_name: "Schmidt",
-    chair: "Software Engineering",
-    office_address: "AE22-R273",
-    email: "schmidt@example.com",
-    additional_cc: ["secretary@example.com"],
-  },
-];
+const EMPTY: Counselor = {
+  id: 0,
+  title: "",
+  first_name: "",
+  last_name: "",
+  chair: "",
+  office_address: "",
+  email: "",
+  additional_cc: [],
+};
 
 function CounselorsPage() {
   const navigate = useNavigate();
-  const [counselors, setCounselors] = useState<Counselor[]>(INITIAL_COUNSELORS);
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Counselor | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    api
+      .get<Counselor[]>("/counselors/")
+      .then((res) => setCounselors(res.data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, []);
 
   function openMail(c: Counselor) {
     navigate(`/counselors/${c.id}/mail`, { state: { counselor: c } });
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!draft) return;
-    setCounselors((prev) => prev.map((c) => (c.id === draft.id ? draft : c)));
-    setDraft(null);
+    setSaving(true);
+    try {
+      if (draft.id === 0) {
+        await api.post("/counselors/", draft); // create
+      } else {
+        await api.patch(`/counselors/${draft.id}/`, draft); // update
+      }
+      setDraft(null);
+      load(); // re-read from the database
+    } catch (err) {
+      alert("Save failed: " + (err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeCounselor(c: Counselor) {
+    if (!window.confirm(`Delete ${c.first_name} ${c.last_name}?`)) return;
+    try {
+      await api.delete(`/counselors/${c.id}/`);
+      load();
+    } catch (err) {
+      alert("Delete failed: " + (err as Error).message);
+    }
   }
 
   return (
     <section>
       <div className="page-header">
         <h2>Counselors</h2>
-        <button>Add Counselor</button>
+        <button onClick={() => setDraft({ ...EMPTY })}>Add Counselor</button>
       </div>
 
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Name</th>
-              <th>Chair</th>
-              <th>Office</th>
-              <th>Email</th>
-              <th>CC</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {counselors.map((c) => (
-              <tr key={c.id}>
-                <td>{c.title}</td>
-                <td>
-                  {c.first_name} {c.last_name}
-                </td>
-                <td>{c.chair}</td>
-                <td>{c.office_address}</td>
-                <td>{c.email}</td>
-                <td>{c.additional_cc.join(", ")}</td>
-                <td>
-                  <button onClick={() => setDraft({ ...c })}>Edit</button>
-                  <button>Add Slot</button>
-                  <button onClick={() => openMail(c)}>Mail</button>
-                </td>
+      {loading && <p>Loading…</p>}
+      {error && <p style={{ color: "red" }}>Error: {error}</p>}
+
+      {!loading && !error && (
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Name</th>
+                <th>Chair</th>
+                <th>Office</th>
+                <th>Email</th>
+                <th>CC</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {counselors.length === 0 && (
+                <tr>
+                  <td colSpan={7}>No counselors yet.</td>
+                </tr>
+              )}
+              {counselors.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.title}</td>
+                  <td>
+                    {c.first_name} {c.last_name}
+                  </td>
+                  <td>{c.chair}</td>
+                  <td>{c.office_address}</td>
+                  <td>{c.email}</td>
+                  <td>{c.additional_cc.join(", ")}</td>
+                  <td>
+                    <button onClick={() => setDraft({ ...c })}>Edit</button>
+                    <button onClick={() => openMail(c)}>Mail</button>
+                    <button onClick={() => removeCounselor(c)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {draft && (
-        <Modal title="Edit Counselor" onClose={() => setDraft(null)}>
+        <Modal
+          title={draft.id === 0 ? "Add Counselor" : "Edit Counselor"}
+          onClose={() => setDraft(null)}
+        >
           <div className="card">
             <label>Title</label>
             <input
@@ -127,7 +177,9 @@ function CounselorsPage() {
               }
             />
             <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
-              <button onClick={saveDraft}>Save</button>
+              <button onClick={saveDraft} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </button>
               <button onClick={() => setDraft(null)}>Cancel</button>
             </div>
           </div>

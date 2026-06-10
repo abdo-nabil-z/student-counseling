@@ -1,10 +1,8 @@
 from django.urls import path
+from counselors.views import home
 
-
-app_name = 'students'
-
-#  students/   or   students:
+app_name = "counselors"
 
 urlpatterns = [
-
+    path("", home, name="home"),
 ]

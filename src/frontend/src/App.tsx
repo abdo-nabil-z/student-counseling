@@ -115,6 +115,7 @@ import CounselorMailPage from "./pages/CounselorMailPage";
 // import FinalBundlePage from "./pages/FinalBundlePage";
 
 import "./App.css";
+import SessionsPage from "./pages/sessionspage";
 
 function App() {
   return (
@@ -136,6 +137,7 @@ function App() {
               />
               <Route path="counselors" element={<CounselorsPage />} />
               <Route path="slots" element={<SlotsPage />} />
+              <Route path="documents" element={<SessionsPage />} />
               <Route path="planning" element={<PlanningPage />} />
               {/* <Route path="student-mail" element={<StudentMailPage />} /> */}
               {/* <Route path="counselor-mail" element={<CounselorMailPage />} /> */}

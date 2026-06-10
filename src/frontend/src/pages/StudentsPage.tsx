@@ -1,84 +1,153 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Student } from "../types/student";
 import Modal from "../components/common/Model";
+import api from "../api/client";
 
-const INITIAL_STUDENTS: Student[] = [
-  {
-    id: 1,
-    matriculation_number: "123456",
-    first_name: "Max",
-    last_name: "Müller",
-    email: "max@example.com",
-    course_of_studies: "Computer Science",
-    current_study_semester: 5,
-    credit_points: 70,
-    contact_status: "not_contacted_yet",
-  },
-];
+const EMPTY: Student = {
+  id: 0,
+  matriculation_number: "",
+  first_name: "",
+  last_name: "",
+  email: "",
+  course_of_studies: "",
+  current_study_semester: 1,
+  credit_points: 0,
+  contact_status: "not_contacted_yet",
+};
 
 function StudentsPage() {
   const navigate = useNavigate();
-  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Student | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    api
+      .get<Student[]>("/students/students/")
+      .then((res) => setStudents(res.data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, []);
 
   function openSessions(s: Student) {
     navigate(`/students/${s.id}/mail`, { state: { student: s } });
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!draft) return;
-    setStudents((prev) => prev.map((s) => (s.id === draft.id ? draft : s)));
-    setDraft(null);
+    setSaving(true);
+    const payload = {
+      matriculation_number: draft.matriculation_number,
+      first_name: draft.first_name,
+      last_name: draft.last_name,
+      email: draft.email,
+      course_of_studies: draft.course_of_studies || null,
+      current_study_semester: draft.current_study_semester,
+      credit_points: Number(draft.credit_points),
+      contact_status: draft.contact_status,
+    };
+
+    try {
+      if (draft.id) {
+        await api.patch(`/students/students/${draft.id}/`, payload);
+      } else {
+        await api.post("/students/students/", payload);
+      }
+      setDraft(null);
+      load();
+    } catch (err) {
+      alert("Save failed: " + (err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeStudent(s: Student) {
+    if (!window.confirm(`Delete ${s.first_name} ${s.last_name}?`)) return;
+    try {
+      await api.delete(`/students/students/${s.id}/`);
+      load();
+    } catch (err) {
+      alert("Delete failed: " + (err as Error).message);
+    }
   }
 
   return (
     <section>
       <div className="page-header">
         <h2>Students</h2>
-        <button>Add Student</button>
+        <button onClick={() => setDraft({ ...EMPTY })}>Add Student</button>
       </div>
 
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Matriculation No.</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Course</th>
-              <th>Semester</th>
-              <th>CP</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((s) => (
-              <tr key={s.id}>
-                <td>{s.matriculation_number}</td>
-                <td>
-                  {s.first_name} {s.last_name}
-                </td>
-                <td>{s.email}</td>
-                <td>{s.course_of_studies}</td>
-                <td>{s.current_study_semester}</td>
-                <td>{s.credit_points === -1 ? "—" : s.credit_points}</td>
-                <td>{s.contact_status}</td>
-                <td>
-                  <button onClick={() => setDraft({ ...s })}>Edit</button>
-                  <button>Assign</button>
-                  <button onClick={() => openSessions(s)}>Sessions</button>
-                </td>
+      {loading && <p>Loading…</p>}
+      {error && <p style={{ color: "red" }}>Error: {error}</p>}
+
+      {!loading && !error && (
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Matriculation No.</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Course</th>
+                <th>Semester</th>
+                <th>CP</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {students.length === 0 && (
+                <tr>
+                  <td colSpan={8}>No students yet.</td>
+                </tr>
+              )}
+              {students.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.matriculation_number}</td>
+                  <td>
+                    {s.first_name} {s.last_name}
+                  </td>
+                  <td>{s.email}</td>
+                  <td>{s.course_of_studies}</td>
+                  <td>{s.current_study_semester}</td>
+                  <td>{s.credit_points === -1 ? "—" : s.credit_points}</td>
+                  <td>{s.contact_status}</td>
+                  <td>
+                    <button onClick={() => setDraft({ ...s })}>Edit</button>
+                    <button onClick={() => openSessions(s)}>Sessions</button>
+                    <button onClick={() => removeStudent(s)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {draft && (
-        <Modal title="Edit Student" onClose={() => setDraft(null)}>
+        <Modal
+          title={draft.id === 0 ? "Add Student" : "Edit Student"}
+          onClose={() => setDraft(null)}
+        >
           <div className="card">
+            <label>Matriculation No.</label>
+            <input
+              value={draft.matriculation_number}
+              onChange={(e) =>
+                setDraft({ ...draft, matriculation_number: e.target.value })
+              }
+            />
             <label>First name</label>
             <input
               value={draft.first_name}
@@ -137,7 +206,9 @@ function StudentsPage() {
               <option value="didnt_respond">Didn't respond</option>
             </select>
             <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
-              <button onClick={saveDraft}>Save</button>
+              <button onClick={saveDraft} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </button>
               <button onClick={() => setDraft(null)}>Cancel</button>
             </div>
           </div>

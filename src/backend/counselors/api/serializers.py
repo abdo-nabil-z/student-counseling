@@ -1,14 +1,34 @@
 from rest_framework import serializers
-
 from counselors.models import Counselor, AvailabilityBlock
 
-class CounselorCreateSerializer(serializers.ModelSerializer):
-    additional_cc = serializers.ListField(child=serializers.EmailField(), required=False)
-    chair = serializers.CharField(required=False)
 
+class CounselorCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Counselor
-        fields = ["title", "first_name", "last_name", "chair", "office_address", "email", "additional_cc"]
+        fields = [
+            "title",
+            "first_name",
+            "last_name",
+            "chair",
+            "office_address",
+            "email",
+            "additional_cc",
+        ]
+
+
+class CounselorUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Counselor
+        fields = [
+            "title",
+            "first_name",
+            "last_name",
+            "chair",
+            "office_address",
+            "email",
+            "additional_cc",
+        ]
+
 
 class CounselorDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,9 +43,7 @@ class AvailabilityBlockCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs["start_time"] >= attrs["end_time"]:
-            raise serializers.ValidationError(
-                "Start time must be before end time."
-            )
+            raise serializers.ValidationError("Start time must be before end time.")
         return attrs
 
 
@@ -33,3 +51,16 @@ class AvailabilityBlockDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = AvailabilityBlock
         fields = "__all__"
+
+
+from counselors.models import AppointmentSlot  # add if not already imported
+
+class AppointmentSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentSlot
+        fields = "__all__"
+
+class AppointmentSlotCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentSlot
+        fields = ["availability_block", "start_time", "end_time", "status"]
