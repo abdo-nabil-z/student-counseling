@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./src/frontend:/workspace/frontend
+      - ./.git:/workspace/.git
       # Keep node_modules inside the container — avoids Windows filesystem performance issues
       - frontend_node_modules:/workspace/frontend/node_modules
     ports:
@@ -21,6 +22,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./src/backend:/workspace/backend
+      - ./.git:/workspace/.git
     ports:
       - "8000:8000"
     # environment:

@@ -4,3 +4,5 @@ django-cors-headers==4.9.0
 django-debug-toolbar==6.3.0
 djangorestframework-simplejwt==5.5.1
 drf-spectacular==0.29.0
+jinja2==3.1.6
+pydantic==2.13.4
