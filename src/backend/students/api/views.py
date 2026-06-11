@@ -6,7 +6,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResp
 from students.models import Student
 from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer
 
-
+from django.shortcuts import get_object_or_404
 
 @extend_schema_view(
         get=extend_schema(
@@ -46,3 +46,24 @@ def create_list_students(request):
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@extend_schema_view(
+    get=extend_schema(responses={200: StudentDetailSerializer}, description="Get one student", tags=["Students"]),
+    patch=extend_schema(request=StudentCreateSerializer, responses={200: StudentDetailSerializer, 400: OpenApiResponse(description="Validation errors")}, description="Update a student", tags=["Students"]),
+    delete=extend_schema(responses={204: OpenApiResponse(description="Deleted")}, description="Delete a student", tags=["Students"]),
+)
+@api_view(["GET", "PATCH", "DELETE"])
+def detail_student(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+
+    if request.method == "GET":
+        return Response(StudentDetailSerializer(student).data)
+
+    if request.method == "PATCH":
+        serializer = StudentCreateSerializer(student, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(StudentDetailSerializer(student).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    student.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

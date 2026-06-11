@@ -22,3 +22,11 @@ def create_session(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+from session.api.serializers import CounselingSessionDetailSerializer  # add this import
+
+@api_view(["GET"])
+def list_sessions(request):
+    sessions = CounselingSession.objects.all()
+    return Response(CounselingSessionDetailSerializer(sessions, many=True).data)

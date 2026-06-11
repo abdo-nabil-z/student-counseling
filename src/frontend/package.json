@@ -12,13 +12,13 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@mui/material": "^9.0.1",
-    "axios": "^1.16.0",
+    "@mui/material": "^9.1.1",
+    "axios": "^1.17.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-hook-form": "^7.75.0",
+    "react-hook-form": "^7.78.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.15.0"
+    "react-router-dom": "^7.17.0"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

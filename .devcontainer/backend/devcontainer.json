@@ -14,10 +14,10 @@
   "overrideCommand": true,
 
   // Forward both ports so the backend dev can also inspect the frontend if needed
-  "forwardPorts": [8000, 3000],
+  "forwardPorts": [8000, 5173],
   "portsAttributes": {
     "8000": { "label": "Django API" },
-    "3000": { "label": "React Dev Server" }
+    "5173": { "label": "Vite Dev Server" }
   },
 
   // Install from requirements.txt if it exists; safe to run before project is scaffolded

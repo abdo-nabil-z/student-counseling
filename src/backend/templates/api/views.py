@@ -7,6 +7,7 @@ from templates.api.serializers import TemplateSerializer, TemplateRenderTestmail
 from templates.api import schemas
 from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, TestmailContext, flatten_context_schema
 from django.shortcuts import get_object_or_404
+from templates.api.render_views import render_template_for_testmail  # noqa: F401
 
     
 
