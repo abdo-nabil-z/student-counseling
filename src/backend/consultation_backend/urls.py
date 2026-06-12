@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
@@ -23,12 +25,13 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('counselors/', include('counselors.urls', namespace='counselors')),
     path('students/', include('students.urls', namespace='students')),
-    path('session/',include('session.urls', namespace='session')),
+    path('appointments/', include('appointments.urls', namespace='appointments')),
 
     # REST Framwork Urls
     path('api/counselors/', include('counselors.api.urls', namespace='counselors_api')),
     path('api/students/', include('students.api.urls', namespace='students_api')),
-    path('api/session/', include('session.api.urls', namespace='session_api')),
+    path('api/appointments/', include('appointments.api.urls', namespace='appointments_api')),
+    path('api/documents/', include('documents.api.urls', namespace='documents_api')),
     path('api/templates/', include('templates.api.urls', namespace='templates_api')),
 
 
@@ -37,4 +40,4 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

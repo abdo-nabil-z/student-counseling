@@ -41,13 +41,13 @@ class StudentAndBlocksContext(BaseModel):
 
 
 
-class SessionStudentCounselorContext(BaseModel):
+class AppointmentStudentCounselorContext(BaseModel):
     student: StudentContext
     counselor: CounselorContext
-    # session: TODO
+    # appointment: TODO
 
     @classmethod
-    def build(cls, student_id: int, counselor_id: int) -> "SessionStudentCounselorContext":
+    def build(cls, student_id: int, counselor_id: int) -> "AppointmentStudentCounselorContext":
         student = StudentContext.from_model(Student.objects.get(id=student_id))
         counselor = CounselorContext.from_model(Counselor.objects.get(id=counselor_id))
         #TODO session
@@ -63,15 +63,15 @@ class StudyPlanContext(BaseModel):
         raise NotImplementedError("StudyPlanContext.build is not implemented yet")
     
     
-class SessionMinutesContext(BaseModel):
+class AppointmentMinutesContext(BaseModel):
     student: StudentContext
     counselor: CounselorContext
-    # session: TODO
+    # appointment: TODO
     # minutes_elements: TODO
     
     @classmethod
-    def build(cls, student_id: int, counselor_id: int) -> "SessionMinutesContext":
-        raise NotImplementedError("SessionMinutesContext.build is not implemented yet")
+    def build(cls, student_id: int, counselor_id: int) -> "AppointmentMinutesContext":
+        raise NotImplementedError("AppointmentMinutesContext.build is not implemented yet")
 
     
 
@@ -84,12 +84,12 @@ PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
     Purpose.TESTMAIL: TestmailContext,
     Purpose.STUDENT_INVITATION_MAIL: StudentAndBlocksContext,
     Purpose.STUDENT_REMINDER_MAIL: StudentAndBlocksContext,
-    Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL: SessionStudentCounselorContext,
-    Purpose.SESSION_INVITATION_MAIL: SessionStudentCounselorContext,
-    Purpose.COUNSELOR_PREPARATION_INSTRUCTION_MAIL: SessionStudentCounselorContext,
-    Purpose.SESSION_CANCELLATION_MAIL: SessionStudentCounselorContext,
+    Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL: AppointmentStudentCounselorContext,
+    Purpose.APPOINTMENT_INVITATION_MAIL: AppointmentStudentCounselorContext,
+    Purpose.COUNSELOR_PREPARATION_INSTRUCTION_MAIL: AppointmentStudentCounselorContext,
+    Purpose.APPOINTMENT_CANCELLATION_MAIL: AppointmentStudentCounselorContext,
     Purpose.STUDY_PLAN: StudyPlanContext,
-    Purpose.SESSION_MINUTES: SessionMinutesContext,
+    Purpose.APPOINTMENT_MINUTES: AppointmentMinutesContext,
 }
 
 

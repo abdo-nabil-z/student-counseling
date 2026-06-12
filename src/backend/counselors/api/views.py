@@ -143,6 +143,12 @@ from counselors.api.serializers import (        # add to existing serializer imp
     AppointmentSlotCreateSerializer,
 )
 
+@extend_schema(
+    methods=["GET", "POST"  ],
+    responses={200: AppointmentSlotSerializer(many=True)},
+    description="List all appointment slots, optionally filtered by availability block",
+    tags=["Appointments"],
+)
 @api_view(["GET", "POST"])
 def create_list_slots(request):
     if request.method == "GET":

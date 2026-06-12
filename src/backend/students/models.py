@@ -27,10 +27,27 @@ class Student(models.Model):
 
     contact_status = models.CharField(max_length=30, choices=ContactStatus.choices, default= ContactStatus.NOT_CONTACTED_YET)
 
+    
+    initial_study_plan = models.ForeignKey(
+        'documents.Document', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    final_study_plan = models.ForeignKey(
+        'documents.Document', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+
     #study_path = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def delete(self, *args, **kwargs):
+        docs = [self.initial_study_plan, self.final_study_plan]
+        super().delete(*args, **kwargs)
+        for doc in docs:
+            if doc:
+                doc.delete()
 
     @property
     def full_name(self):
