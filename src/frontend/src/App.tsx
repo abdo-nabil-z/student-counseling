@@ -106,13 +106,14 @@ import StudentImportPage from "./pages/StudentImportPage";
 import StudentsPage from "./pages/StudentsPage";
 import CounselorsPage from "./pages/CounselorsPage";
 import SlotsPage from "./pages/SlotsPage";
-import PlanningPage from "./pages/PlanningPage";
+// import PlanningPage from "./pages/PlanningPage";
 import StudentMailPage from "./pages/StudentMailPage";
 import CounselorMailPage from "./pages/CounselorMailPage";
 // import DocumentsPage from "./pages/DocumentsPage";
 // import MinutesPage from "./pages/MinutesPage";
 // import NoShowPage from "./pages/NoShowPage";
 // import FinalBundlePage from "./pages/FinalBundlePage";
+import AppointmentsPage from "./pages/ApointmentsPage"; // remove PlanningPage + SessionsPage imports
 
 import "./App.css";
 import SessionsPage from "./pages/sessionspage";
@@ -138,7 +139,9 @@ function App() {
               <Route path="counselors" element={<CounselorsPage />} />
               <Route path="slots" element={<SlotsPage />} />
               <Route path="documents" element={<SessionsPage />} />
-              <Route path="planning" element={<PlanningPage />} />
+              {/* <Route path="planning" element={<PlanningPage />} /> */}
+              // remove these two:
+              <Route path="appointments" element={<AppointmentsPage />} />
               {/* <Route path="student-mail" element={<StudentMailPage />} /> */}
               {/* <Route path="counselor-mail" element={<CounselorMailPage />} /> */}
             </>

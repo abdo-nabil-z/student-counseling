@@ -95,3 +95,13 @@ def set_default_template(request, purpose):
     TemplatePurpose.objects.filter(purpose=purpose, template_id=template_id).update(default=True)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+
+@api_view(["POST"])
+def render_template_for_testmail(request):
+    return Response({
+        "subject": "Test mail",
+        "body": "This is a temporary test mail preview."
+    })
