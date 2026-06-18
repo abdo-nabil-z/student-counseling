@@ -36,7 +36,6 @@ def delete_document(request, pk):
     description="Download the file for a document.",
     tags=["Documents"],
 )
-@api_view(["GET"])
 def download_document(request, pk):
     doc = get_object_or_404(Document, pk=pk)
     return FileResponse(doc.file.open("rb"), as_attachment=True, filename=doc.name)
@@ -83,7 +82,6 @@ def upload_master_version(request, pk):
     description="Download a specific version of a master document.",
     tags=["Documents"],
 )
-@api_view(["GET"])
 def download_master_version(request, pk):
     version = get_object_or_404(MasterDocumentVersion, pk=pk)
     filename = version.file.name.split("/")[-1]

@@ -28,15 +28,13 @@ class Counselor(models.Model):
     
 
 
-class AvailabilityBlock(models.Model):
-    
-    counselor = models.ForeignKey(Counselor, on_delete=models.CASCADE, related_name="availability_blocks")
-    
+class Slot(models.Model):
+
+    counselor = models.ForeignKey(Counselor, on_delete=models.CASCADE, related_name="slots")
+
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-
-    appointment_duration_minutes = models.PositiveIntegerField(default=30)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -45,24 +43,4 @@ class AvailabilityBlock(models.Model):
 
     def __str__(self):
         return f"{self.counselor} | {self.date} {self.start_time}-{self.end_time}"
-    
-
-class AppointmentSlot(models.Model):
-    class Status(models.TextChoices):
-        AVAILABLE = "available", "Available"
-        BOOKED = "booked", "Booked"
-        CANCELLED = "cancelled", "Cancelled"
-    
-    availability_block = models.ForeignKey(AvailabilityBlock, on_delete=models.CASCADE, related_name="appointment_slots")
-
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-
-    status = models.CharField(max_length=20, choices=Status.choices, default= Status.AVAILABLE)
-
-    class Meta:
-        ordering = ["start_time"]
-
-    def __str__(self):
-        return f"{self.start_time} - {self.end_time} ({self.status})"
     

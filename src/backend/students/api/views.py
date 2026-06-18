@@ -100,6 +100,20 @@ def upload_initial_study_plan(request, student_id):
 
 
 @extend_schema(
+    responses={404: OpenApiResponse(description="Student or appointment not found")},
+    description="Get the appointment for a student. Returns 404 if the student has no appointment.",
+    tags=["Students"],
+)
+@api_view(["GET"])
+def get_student_appointment(request, student_id):
+    from appointments.api.serializers import AppointmentDetailSerializer
+    from appointments.models import Appointment
+    student = get_object_or_404(Student, id=student_id)
+    appointment = get_object_or_404(Appointment, student=student)
+    return Response(AppointmentDetailSerializer(appointment).data)
+
+
+@extend_schema(
     request=_study_plan_upload_request,
     responses={201: DocumentInfoSerializer, 400: OpenApiResponse(description="Validation errors"), 404: OpenApiResponse(description="Student not found")},
     description="Upload the final study plan PDF for a student. Replaces any existing one.",

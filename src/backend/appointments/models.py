@@ -1,7 +1,7 @@
 from django.db import models
 
 from students.models import Student
-from counselors.models import Counselor, AppointmentSlot
+from counselors.models import Counselor, Slot
 
 # Create your models here.
 
@@ -12,11 +12,13 @@ class Appointment(models.Model):
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
         MISSED = "missed", "Missed"
-    
-    student = models.ForeignKey(Student, on_delete=models.DO_NOTHING, related_name="appointment")
+
+    student = models.OneToOneField(Student, on_delete=models.DO_NOTHING, related_name="appointment")
     counselor = models.ForeignKey(Counselor, on_delete=models.DO_NOTHING, related_name="appointment")
 
-    slot = models.ForeignKey(AppointmentSlot, on_delete=models.DO_NOTHING, related_name="appointment")
+    slot = models.ForeignKey(Slot, on_delete=models.DO_NOTHING, related_name="appointments")
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
     location = models.CharField(max_length=255, null=True, blank=True)
     
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.BOOKED)
