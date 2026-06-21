@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from counselors.models import Counselor, AvailabilityBlock
+from counselors.models import Counselor, Slot
 
 
 class CounselorCreateSerializer(serializers.ModelSerializer):
@@ -36,31 +36,30 @@ class CounselorDetailSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class AvailabilityBlockCreateSerializer(serializers.ModelSerializer):
+class SlotCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AvailabilityBlock
+        model = Slot
         fields = ["date", "start_time", "end_time"]
 
     def validate(self, attrs):
         if attrs["start_time"] >= attrs["end_time"]:
             raise serializers.ValidationError("Start time must be before end time.")
+        counselor = self.context.get("counselor")
+        if counselor:
+            overlapping = Slot.objects.filter(
+                counselor=counselor,
+                date=attrs["date"],
+                start_time__lt=attrs["end_time"],
+                end_time__gt=attrs["start_time"],
+            ).exists()
+            if overlapping:
+                raise serializers.ValidationError(
+                    "This slot overlaps with an existing one for this counselor."
+                )
         return attrs
 
 
-class AvailabilityBlockDetailSerializer(serializers.ModelSerializer):
+class SlotDetailSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AvailabilityBlock
+        model = Slot
         fields = "__all__"
-
-
-from counselors.models import AppointmentSlot  # add if not already imported
-
-class AppointmentSlotSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AppointmentSlot
-        fields = "__all__"
-
-class AppointmentSlotCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AppointmentSlot
-        fields = ["availability_block", "start_time", "end_time", "status"]

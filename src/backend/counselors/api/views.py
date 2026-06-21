@@ -8,15 +8,17 @@ from drf_spectacular.utils import (
     extend_schema,
     extend_schema_view,
     OpenApiResponse,
+    OpenApiParameter,
 )
+from drf_spectacular.types import OpenApiTypes
 
-from counselors.models import Counselor, AvailabilityBlock
+from counselors.models import Counselor, Slot
 from counselors.api.serializers import (
     CounselorCreateSerializer,
     CounselorUpdateSerializer,
     CounselorDetailSerializer,
-    AvailabilityBlockCreateSerializer,
-    AvailabilityBlockDetailSerializer,
+    SlotCreateSerializer,
+    SlotDetailSerializer,
 )
 
 
@@ -102,58 +104,37 @@ def detail_counselor(request, counselor_id):
 
 @extend_schema(
     methods=["GET"],
-    responses={200: AvailabilityBlockDetailSerializer(many=True)},
-    description="List availability blocks for one counselor",
+    responses={200: SlotDetailSerializer(many=True)},
+    description="List slots for one counselor",
     tags=["Counselors"],
 )
 @extend_schema(
     methods=["POST"],
-    request=AvailabilityBlockCreateSerializer,
+    request=SlotCreateSerializer,
     responses={
-        201: AvailabilityBlockDetailSerializer,
+        201: SlotDetailSerializer,
         400: OpenApiResponse(description="Validation errors"),
     },
-    description="Create availability block for one counselor",
+    description="Create slot for one counselor",
     tags=["Counselors"],
 )
 @api_view(["GET", "POST"])
-def create_list_counselor_time_slot(request, counselor_id):
+def create_list_counselor_slots(request, counselor_id):
     counselor = get_object_or_404(Counselor, id=counselor_id)
 
     if request.method == "GET":
-        blocks = AvailabilityBlock.objects.filter(counselor=counselor).order_by(
+        slots = Slot.objects.filter(counselor=counselor).order_by(
             "date",
             "start_time",
         )
-        serializer = AvailabilityBlockDetailSerializer(blocks, many=True)
+        serializer = SlotDetailSerializer(slots, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    serializer = AvailabilityBlockCreateSerializer(data=request.data)
+    serializer = SlotCreateSerializer(data=request.data, context={"counselor": counselor})
 
     if serializer.is_valid():
-        block = serializer.save(counselor=counselor)
-        response_serializer = AvailabilityBlockDetailSerializer(block)
+        slot = serializer.save(counselor=counselor)
+        response_serializer = SlotDetailSerializer(slot)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-from counselors.models import AppointmentSlot  # add to existing model imports
-from counselors.api.serializers import (        # add to existing serializer imports
-    AppointmentSlotSerializer,
-    AppointmentSlotCreateSerializer,
-)
-
-@api_view(["GET", "POST"])
-def create_list_slots(request):
-    if request.method == "GET":
-        slots = AppointmentSlot.objects.all()
-        block = request.query_params.get("block")
-        if block:
-            slots = slots.filter(availability_block_id=block)
-        return Response(AppointmentSlotSerializer(slots, many=True).data)
-
-    serializer = AppointmentSlotCreateSerializer(data=request.data)
-    if serializer.is_valid():
-        slot = serializer.save()
-        return Response(AppointmentSlotSerializer(slot).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
