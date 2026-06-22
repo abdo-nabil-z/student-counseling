@@ -16,8 +16,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
 # Used when LISTING appointments (expands the related records for display)
 class AppointmentDetailSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
-    student = serializers.PrimaryKeyRelatedField(queryset=Appointment.objects.all())
-    counselor = serializers.PrimaryKeyRelatedField(queryset=Appointment.objects.all())
+    student = StudentDetailSerializer(read_only=True)
+    counselor = CounselorDetailSerializer(read_only=True)
     slot = SlotDetailSerializer(read_only=True)
     status = serializers.CharField(read_only=True)
     location = serializers.CharField(read_only=True)
@@ -25,8 +25,4 @@ class AppointmentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Appointment
-        fields = [
-            "id", "student", "counselor", "slot", "start_time", "end_time", "status",
-            "location", "minutes",
-            "created_at", "updated_at",
-        ]
+        fields = "__all__"

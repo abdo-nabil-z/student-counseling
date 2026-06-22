@@ -22,21 +22,18 @@ from counselors.api.serializers import (
 )
 
 
-@extend_schema(
-    methods=["GET"],
-    responses={200: CounselorDetailSerializer(many=True)},
-    description="List all counselors",
-    tags=["Counselors"],
-)
-@extend_schema(
-    methods=["POST"],
-    request=CounselorCreateSerializer,
-    responses={
-        201: CounselorDetailSerializer,
-        400: OpenApiResponse(description="Validation errors"),
-    },
-    description="Create a new counselor",
-    tags=["Counselors"],
+@extend_schema_view(
+    get=extend_schema(
+        responses={200: CounselorDetailSerializer(many=True)},
+        description="List all counselors",
+        tags=["Counselors"],
+    ),
+    post=extend_schema(
+        request=CounselorCreateSerializer,
+        responses={201: CounselorDetailSerializer, 400: OpenApiResponse(description="Validation errors"),},
+        description="Create a new counselor",
+        tags=["Counselors"],
+    ),
 )
 @api_view(["GET", "POST"])
 def create_list_counselors(request):

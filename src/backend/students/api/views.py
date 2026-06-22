@@ -7,9 +7,11 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResp
 from django.shortcuts import get_object_or_404
 
 from students.models import Student
-from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer
+from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer, StudentUpdateSerializer
 from documents.api.serializers import DocumentInfoSerializer
 from documents.services import attach_document
+
+
 
 @extend_schema_view(
         get=extend_schema(
@@ -49,33 +51,55 @@ def create_list_students(request):
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 @extend_schema_view(
-    get=extend_schema(responses={200: StudentDetailSerializer}, description="Get one student", tags=["Students"]),
-    patch=extend_schema(request=StudentCreateSerializer, responses={200: StudentDetailSerializer, 400: OpenApiResponse(description="Validation errors")}, description="Update a student", tags=["Students"]),
-    delete=extend_schema(responses={204: OpenApiResponse(description="Deleted")}, description="Delete a student", tags=["Students"]),
+    get=extend_schema(
+        responses={200: StudentDetailSerializer},
+        description="Get one student",
+        tags=["Students"]
+    ),
+    patch=extend_schema(
+        request=StudentUpdateSerializer,
+        responses={200: StudentDetailSerializer, 400: OpenApiResponse(description="Validation errors")},
+        description="Update a student",
+        tags=["Students"]
+    ),
+    delete=extend_schema(
+        responses={204: OpenApiResponse(description="Deleted")},
+        description="Delete a student",
+        tags=["Students"]
+    ),
 )
 @api_view(["GET", "PATCH", "DELETE"])
 def detail_student(request, student_id):
     student = get_object_or_404(Student, id=student_id)
 
     if request.method == "GET":
-        return Response(StudentDetailSerializer(student).data)
+        serializer = StudentDetailSerializer(student)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method == "PATCH":
-        serializer = StudentCreateSerializer(student, data=request.data, partial=True)
+        serializer = StudentUpdateSerializer(student, data=request.data, partial=True)
+        
         if serializer.is_valid():
-            serializer.save()
-            return Response(StudentDetailSerializer(student).data)
+            student = serializer.save()
+            response_serializer = StudentDetailSerializer(student)    
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    student.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    if request.method == "DELETE":
+        student.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 _study_plan_upload_request = {"multipart/form-data": inline_serializer("StudyPlanUpload", fields={
     "file": drf_serializers.FileField(),
     "name": drf_serializers.CharField(required=False, help_text="Display name; defaults to filename"),
 })}
+
 
 
 @extend_schema(
@@ -99,6 +123,7 @@ def upload_initial_study_plan(request, student_id):
     return Response(DocumentInfoSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
+
 @extend_schema(
     responses={404: OpenApiResponse(description="Student or appointment not found")},
     description="Get the appointment for a student. Returns 404 if the student has no appointment.",
@@ -111,6 +136,7 @@ def get_student_appointment(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     appointment = get_object_or_404(Appointment, student=student)
     return Response(AppointmentDetailSerializer(appointment).data)
+
 
 
 @extend_schema(

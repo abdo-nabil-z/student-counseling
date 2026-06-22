@@ -20,8 +20,8 @@ class Student(models.Model):
     email = models.EmailField()
     
     course_of_studies = models.CharField(null=True, blank=True)
-    current_study_semester = models.PositiveBigIntegerField(null=True, blank=True)
-    credit_points = models.IntegerField(default=-1)
+    current_study_semester = models.PositiveSmallIntegerField(null=True, blank=True)
+    credit_points = models.PositiveIntegerField(null=True, blank=True)
     
     #study_program = models.ForeignKey(StudyProgram, on_delete=models.SET_NULL, null=True)
 

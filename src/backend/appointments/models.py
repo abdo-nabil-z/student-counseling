@@ -13,10 +13,10 @@ class Appointment(models.Model):
         CANCELLED = "cancelled", "Cancelled"
         MISSED = "missed", "Missed"
 
-    student = models.OneToOneField(Student, on_delete=models.DO_NOTHING, related_name="appointment")
-    counselor = models.ForeignKey(Counselor, on_delete=models.DO_NOTHING, related_name="appointment")
+    student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name="appointment")
+    counselor = models.ForeignKey(Counselor, on_delete=models.CASCADE, related_name="appointment")
 
-    slot = models.ForeignKey(Slot, on_delete=models.DO_NOTHING, related_name="appointments")
+    slot = models.ForeignKey(Slot, on_delete=models.SET_NULL, null=True, blank= True, related_name="appointments")
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     location = models.CharField(max_length=255, null=True, blank=True)

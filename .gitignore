@@ -1,8 +1,12 @@
 **/__pycache__/
 **/.pytest_cache/
+
 **/.vscode/
 **/dist/
 **/build/
 **/bin/
 
 **/db.sqlite3
+*.pyc
+.DS_Store
+.env
