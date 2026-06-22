@@ -14,7 +14,7 @@ class Student(models.Model):
     
     matriculation_number = models.CharField(max_length=9,unique=True, validators=[matriculation_number_validator])
     first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=101)
 
     #user_id = models.CharField(max_length=10)
     email = models.EmailField()

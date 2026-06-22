@@ -10,6 +10,8 @@ from students.models import Student
 from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer, StudentUpdateSerializer
 from documents.api.serializers import DocumentInfoSerializer
 from documents.services import attach_document
+from appointments.models import Appointment
+from counselors.models import Slot
 
 
 
@@ -158,3 +160,62 @@ def upload_final_study_plan(request, student_id):
     student.final_study_plan = doc
     student.save(update_fields=["final_study_plan"])
     return Response(DocumentInfoSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+        request=inline_serializer(
+            name="SemesterCleanupRequest",
+            fields={
+                "confirm": drf_serializers.CharField(),
+            },
+        ),
+        responses={
+            200:inline_serializer(
+                name="SemesterCleanupResponse",
+                fields={
+                    "deleted_appointments": drf_serializers.IntegerField(),
+                    "deleted_students": drf_serializers.IntegerField(),
+                    "deleted_slots": drf_serializers.IntegerField(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid confirmation value"),
+        },
+        description="Delete all semester data: appointments, students, their documents, and counselor slots.",
+        tags=["Students"],
+)
+@api_view(["DELETE"])
+def cleanup_semester_data(request):
+    confirm = request.data.get("confirm")
+
+    if confirm != "DELETE_SEMESTER_DATA":
+        return Response(
+            {
+                "confirm": "You must send confirm='DELETE_SEMESTER_DATA' to run semester cleanup."
+            },
+            status = status.HTTP_400_BAD_REQUEST,
+        )
+    
+    appointments = Appointment.objects.all()
+    students = Student.objects.all()
+    slots = Slot.objects.all()
+
+    deleted_appointments = appointments.count()
+    deleted_students = students.count()
+    deleted_slots = slots.count()
+
+    for appointment in appointments:
+        appointment.delete()
+    
+    for student in students:
+        student.delete()
+
+    slots.delete()
+
+    return Response(
+        {
+            "deleted_appointments": deleted_appointments,
+            "deleted_students": deleted_students,
+            "deleted_slots": deleted_slots,
+        },
+        status=status.HTTP_200_OK
+    )
