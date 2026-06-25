@@ -2,23 +2,8 @@ import { useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import type { Counselor } from "../types/counselor";
 
-type MailType = "preparation" | "invitation";
-
-const PREPARATION = `Hallo {{counselor}},
-
-anbei finden Sie die Unterlagen zur Vorbereitung auf das Beratungsgespräch: den Studienplan der/des Studierenden, die Leistungsübersicht (sofern vorhanden) sowie das Formular für das Beratungsprotokoll.
-
-Viele Grüße
-Helge Parzyjegla
-
-~~~ English below ~~~
-
-Dear {{counselor}},
-
-Please find attached the documents to prepare for the counseling session: the student's study plan, the transcript of records (if available), and the counseling minutes form.
-
-Best regards,
-Helge Parzyjegla`;
+const SUBJECT =
+  "Terminbestätigung Studienberatung / Counseling appointment confirmation";
 
 const INVITATION = `Hallo {{counselor}},
 
@@ -48,20 +33,12 @@ A calendar invite is attached.
 Best regards,
 Helge Parzyjegla`;
 
-const SUBJECTS: Record<MailType, string> = {
-  preparation:
-    "Unterlagen zur Studienberatung / Counseling preparation documents",
-  invitation:
-    "Terminbestätigung Studienberatung / Counseling appointment confirmation",
-};
-
 function CounselorMailPage() {
   const { counselorId } = useParams();
   const location = useLocation();
   const counselor =
     (location.state as { counselor?: Counselor } | null)?.counselor ?? null;
 
-  const [mailType, setMailType] = useState<MailType>("preparation");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [place, setPlace] = useState("Konrad-Zuse-Haus (AE22), Raum 273");
@@ -70,17 +47,10 @@ function CounselorMailPage() {
     ? `${counselor.title} ${counselor.first_name} ${counselor.last_name}`.trim()
     : "{{counselor_name}}";
 
-  // ---- if / else: choose the template for the selected email type ----
-  // eslint-disable-next-line no-useless-assignment
-  let body = "";
-  if (mailType === "preparation") {
-    body = PREPARATION;
-  } else {
-    body = INVITATION.replaceAll("{{date}}", date || "{{date}}")
-      .replaceAll("{{time}}", time || "{{time}}")
-      .replaceAll("{{location}}", place);
-  }
-  body = body.replaceAll("{{counselor}}", name);
+  const body = INVITATION.replaceAll("{{date}}", date || "{{date}}")
+    .replaceAll("{{time}}", time || "{{time}}")
+    .replaceAll("{{location}}", place)
+    .replaceAll("{{counselor}}", name);
 
   return (
     <section>
@@ -89,49 +59,27 @@ function CounselorMailPage() {
       </h2>
 
       <div className="card">
-        <label>Email Type</label>
-        <select
-          value={mailType}
-          onChange={(e) => setMailType(e.target.value as MailType)}
-        >
-          <option value="preparation">Preparation Documents</option>
-          <option value="invitation">Calendar Invitation</option>
-        </select>
+        <h3>Calendar Invitation</h3>
 
-        {/* preparation: show document attachments */}
-        {mailType === "preparation" && (
-          <div className="attachments">
-            <label>Attach Study Plan</label>
-            <input type="file" />
-            <label>Attach Transcript</label>
-            <input type="file" />
-            <label>Attach Minutes Form</label>
-            <input type="file" />
-          </div>
-        )}
-
-        {/* invitation: show appointment details */}
-        {mailType === "invitation" && (
-          <div className="appointment-details">
-            <label>Date</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-            <label>Time</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-            <label>Location</label>
-            <input value={place} onChange={(e) => setPlace(e.target.value)} />
-          </div>
-        )}
+        <div className="appointment-details">
+          <label>Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <label>Time</label>
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+          <label>Location</label>
+          <input value={place} onChange={(e) => setPlace(e.target.value)} />
+        </div>
 
         <label>Subject</label>
-        <input value={SUBJECTS[mailType]} readOnly />
+        <input value={SUBJECT} readOnly />
 
         <label>Email Body (preview)</label>
         <textarea rows={16} value={body} readOnly />
