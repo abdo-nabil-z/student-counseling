@@ -1,6 +1,8 @@
-export interface AppointmentSlot {
+export interface Slot {
   id: number;
-  start_time: string;
-  end_time: string;
-  status: "available" | "booked" | "cancelled";
+  counselor: number;
+  date: string; // "YYYY-MM-DD"
+  start_time: string; // "HH:MM:SS"
+  end_time: string; // "HH:MM:SS"
+  created_at: string;
 }

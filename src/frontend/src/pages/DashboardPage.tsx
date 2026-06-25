@@ -25,7 +25,7 @@ function DashboardPage() {
         </div> */}
       </div>
 
-      <div className="card">
+      {/* <div className="card">
         <h3> Workflow</h3>
         <ol>
           <li>Import students</li>
@@ -36,7 +36,7 @@ function DashboardPage() {
           <li>Track documents and minutes</li>
           <li>Prepare final bundle</li>
         </ol>
-      </div>
+      </div> */}
     </section>
   );
 }

@@ -354,3 +354,25 @@ label {
   padding: 10px;
   border-radius: 8px;
 }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  margin-right: 4px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: #f1f5f9;
+}
+.icon-btn--danger {
+  color: #dc2626;
+  border-color: #f0c2c2;
+}
+.icon-btn--danger:hover {
+  background: #fef2f2;
+}

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import api from "../api/client";
 import type { Counselor } from "../types/counselor";
-import type { AvailabilityBlock } from "../types/slots";
+import type { Slot } from "../types/slots";
 
 function SlotsPage() {
   const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [selectedId, setSelectedId] = useState<number | "">("");
-  const [blocks, setBlocks] = useState<AvailabilityBlock[]>([]);
+  const [slots, setSlots] = useState<Slot[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [date, setDate] = useState("");
   const [start, setStart] = useState("");
@@ -24,23 +24,23 @@ function SlotsPage() {
   useEffect(() => {
     if (selectedId === "") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBlocks([]);
+      setSlots([]);
       return;
     }
     api
-      .get<AvailabilityBlock[]>(`/counselors/${selectedId}/availability-blocks`)
-      .then((res) => setBlocks(res.data))
+      .get<Slot[]>(`/counselors/${selectedId}/slots/`)
+      .then((res) => setSlots(res.data))
       .catch((err) => setError(err.message));
   }, [selectedId, reloadKey]);
 
-  async function createBlock() {
+  async function createSlot() {
     if (selectedId === "" || !date || !start || !end) {
       alert("Pick a counselor and fill date, start and end time.");
       return;
     }
     setSaving(true);
     try {
-      await api.post(`/counselors/${selectedId}/availability-blocks`, {
+      await api.post(`/counselors/${selectedId}/slots/`, {
         date,
         start_time: start,
         end_time: end,
@@ -50,7 +50,12 @@ function SlotsPage() {
       setEnd("");
       setReloadKey((k) => k + 1);
     } catch (err) {
-      alert("Create failed: " + (err as Error).message);
+      // backend rejects overlapping slots / start>=end with a 400
+      const e = err as { response?: { data?: unknown }; message: string };
+      const detail = e.response?.data
+        ? JSON.stringify(e.response.data)
+        : e.message;
+      alert("Create failed: " + detail);
     } finally {
       setSaving(false);
     }
@@ -62,7 +67,7 @@ function SlotsPage() {
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
       <div className="card">
-        <h3>Create Availability Block</h3>
+        <h3>Create Availability Slot</h3>
 
         <label>Counselor</label>
         <select
@@ -99,19 +104,17 @@ function SlotsPage() {
         />
 
         <div style={{ marginTop: "1rem" }}>
-          <button onClick={createBlock} disabled={saving}>
-            {saving ? "Saving…" : "Create Block"}
+          <button onClick={createSlot} disabled={saving}>
+            {saving ? "Saving…" : "Create Slot"}
           </button>
         </div>
       </div>
 
       {selectedId !== "" && (
         <div className="card">
-          <h3>Availability Blocks</h3>
-          {blocks.length === 0 && (
-            <p>No availability blocks for this counselor yet.</p>
-          )}
-          {blocks.length > 0 && (
+          <h3>Availability Slots</h3>
+          {slots.length === 0 && <p>No slots for this counselor yet.</p>}
+          {slots.length > 0 && (
             <table>
               <thead>
                 <tr>
@@ -121,11 +124,11 @@ function SlotsPage() {
                 </tr>
               </thead>
               <tbody>
-                {blocks.map((b) => (
-                  <tr key={b.id}>
-                    <td>{b.date}</td>
-                    <td>{b.start_time.slice(0, 5)}</td>
-                    <td>{b.end_time.slice(0, 5)}</td>
+                {slots.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.date}</td>
+                    <td>{s.start_time.slice(0, 5)}</td>
+                    <td>{s.end_time.slice(0, 5)}</td>
                   </tr>
                 ))}
               </tbody>
