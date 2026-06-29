@@ -26,3 +26,25 @@ class AppointmentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Appointment
         fields = "__all__"
+
+
+class AppointmentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Appointment
+        fields = [
+            "counselor",
+            "slot",
+            "start_time",
+            "duration_minutes",
+            "location",
+            "status",
+        ]
+        extra_kwargs = {
+            "counselor": {"required": False},
+            "slot": {"required": False, "allow_null": True},
+            "start_time": {"required": False},
+            "duration_minutes": {"required": False},
+            "location": {"required": False, "allow_null": True, "allow_blank": True},
+            "status": {"required": False},
+        }
+        

@@ -8,14 +8,17 @@ from drf_spectacular.types import OpenApiTypes
 from django.shortcuts import get_object_or_404
 
 from appointments.models import Appointment
-from appointments.api.serializers import AppointmentSerializer
+from appointments.api.serializers import AppointmentSerializer, AppointmentDetailSerializer, AppointmentUpdateSerializer
 from documents.api.serializers import DocumentInfoSerializer
 from documents.services import attach_document
 
 
 @extend_schema(
         request=AppointmentSerializer,
-        responses={201: AppointmentSerializer, 400: OpenApiResponse(description="Validation errors")},
+        responses={
+            201: AppointmentSerializer,
+            400: OpenApiResponse(description="Validation errors")
+        },
         description="Create a new Appointment linking the student and the counselor and the time slot",
         tags=["Appointments"],
 )
@@ -30,7 +33,6 @@ def create_appointment(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-from appointments.api.serializers import AppointmentDetailSerializer
 
 @extend_schema(
         parameters=[
@@ -54,6 +56,45 @@ def list_appointments(request):
 
 
 @extend_schema(
+        responses={
+            200: AppointmentDetailSerializer,
+            404: OpenApiResponse(description="Appointment not found"),
+        },
+        description="Retrieve a specific appointment by ID.",
+        tags=["Appointments"],
+        methods=["GET"],
+)
+@extend_schema(
+    request=AppointmentUpdateSerializer,
+    responses={
+        200: AppointmentUpdateSerializer,
+        400: OpenApiResponse(description="Validation errors"),
+        404: OpenApiResponse(description="Appointment not found"),
+    },
+    description="Update an appointment. Use this for rescheduling or updating the appointment information",
+    tags=["Appointments"],
+    methods=["PATCH"],
+)
+@api_view(["GET", "PATCH"])
+def detail_update_appointment(request, appointment_id):
+    appointment =get_object_or_404(Appointment, id=appointment_id)
+
+    if request.method == "GET":
+        serializer = AppointmentDetailSerializer(appointment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    if request.method == "PATCH":
+        serializer = AppointmentUpdateSerializer(appointment, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            appointment = serializer.save()
+            response_serializer = AppointmentDetailSerializer(appointment)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+
+
+@extend_schema(
     request={
         "multipart/form-data": {
             "type": "object",
@@ -64,7 +105,11 @@ def list_appointments(request):
             "required": ["file"],
         }
     },
-    responses={201: DocumentInfoSerializer, 400: OpenApiResponse(description="Validation errors"), 404: OpenApiResponse(description="Appointment not found")},
+    responses={
+        201: DocumentInfoSerializer,
+        400: OpenApiResponse(description="Validation errors"),
+        404: OpenApiResponse(description="Appointment not found")
+    },
     description="Upload the minutes PDF for an appointment. Replaces any existing one.",
     tags=["Appointments"],
 )

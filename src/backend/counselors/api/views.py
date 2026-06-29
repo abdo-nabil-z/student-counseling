@@ -19,7 +19,9 @@ from counselors.api.serializers import (
     CounselorDetailSerializer,
     SlotCreateSerializer,
     SlotDetailSerializer,
+    CounselorSlotStatusSerializer,
 )
+from counselors.services.slot_status import build_counselor_slot_status, build_all_counselor_slot_statuses
 
 
 @extend_schema_view(
@@ -30,7 +32,10 @@ from counselors.api.serializers import (
     ),
     post=extend_schema(
         request=CounselorCreateSerializer,
-        responses={201: CounselorDetailSerializer, 400: OpenApiResponse(description="Validation errors"),},
+        responses={
+            201: CounselorDetailSerializer,
+            400: OpenApiResponse(description="Validation errors"),
+        },
         description="Create a new counselor",
         tags=["Counselors"],
     ),
@@ -135,3 +140,31 @@ def create_list_counselor_slots(request, counselor_id):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    responses={200: CounselorSlotStatusSerializer},
+    description="Return one counselor's slots split into free and taken time segments, including uncovered appointments.",
+    tags=["Counselors"],
+)
+@api_view(["GET"])
+def get_counselor_slot_status(request, counselor_id):
+    counselor = get_object_or_404(Counselor, id=counselor_id)
+
+    return Response(
+        build_counselor_slot_status(counselor),
+        status=status.HTTP_200_OK,
+    )
+
+
+@extend_schema(
+    responses={200: CounselorSlotStatusSerializer(many=True)},
+    description="Return all counselor slots split into free and taken time segments, including uncovered appointments.",
+    tags=["Counselors"],
+)
+@api_view(["GET"])
+def list_all_counselor_slot_statuses(request):
+    return Response(
+        build_all_counselor_slot_statuses(),
+        status=status.HTTP_200_OK,
+    )
