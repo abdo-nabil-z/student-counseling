@@ -10,7 +10,7 @@ from documents.api.serializers import DocumentInfoSerializer
 class AppointmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Appointment
-        fields = ["student", "counselor", "slot", "start_time", "end_time", "location"]
+        fields = ["student", "counselor", "slot", "start_time", "duration_minutes", "location"]
 
 
 # Used when LISTING appointments (expands the related records for display)
