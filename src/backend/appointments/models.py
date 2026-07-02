@@ -18,7 +18,7 @@ class Appointment(models.Model):
 
     slot = models.ForeignKey(Slot, on_delete=models.SET_NULL, null=True, blank= True, related_name="appointments")
     start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    duration_minutes = models.PositiveIntegerField(default=30)
     location = models.CharField(max_length=255, null=True, blank=True)
     
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.BOOKED)

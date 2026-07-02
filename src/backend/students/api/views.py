@@ -64,7 +64,10 @@ def create_list_students(request):
     ),
     patch=extend_schema(
         request=StudentUpdateSerializer,
-        responses={200: StudentDetailSerializer, 400: OpenApiResponse(description="Validation errors")},
+        responses={
+            200: StudentDetailSerializer,
+            400: OpenApiResponse(description="Validation errors")
+        },
         description="Update a student",
         tags=["Students"]
     ),
@@ -106,7 +109,11 @@ _study_plan_upload_request = {"multipart/form-data": inline_serializer("StudyPla
 
 @extend_schema(
     request=_study_plan_upload_request,
-    responses={201: DocumentInfoSerializer, 400: OpenApiResponse(description="Validation errors"), 404: OpenApiResponse(description="Student not found")},
+    responses={
+        201: DocumentInfoSerializer,
+        400: OpenApiResponse(description="Validation errors"),
+        404: OpenApiResponse(description="Student not found")
+    },
     description="Upload the initial study plan PDF for a student. Replaces any existing one.",
     tags=["Students"],
 )
@@ -143,7 +150,11 @@ def get_student_appointment(request, student_id):
 
 @extend_schema(
     request=_study_plan_upload_request,
-    responses={201: DocumentInfoSerializer, 400: OpenApiResponse(description="Validation errors"), 404: OpenApiResponse(description="Student not found")},
+    responses={
+        201: DocumentInfoSerializer,
+        400: OpenApiResponse(description="Validation errors"),
+        404: OpenApiResponse(description="Student not found")
+    },
     description="Upload the final study plan PDF for a student. Replaces any existing one.",
     tags=["Students"],
 )
