@@ -1,12 +1,14 @@
-from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 
-from templates.api.serializers import TemplateSerializer, TemplateRenderTestmailRequestSerializer
-
-
-_error_str = inline_serializer(
-    name="_ErrorStr", fields={"error": serializers.CharField()}
+from templates.api.serializers import (
+    TemplateSerializer,
+    CounselorRenderSerializer,
+    StudentRenderSerializer,
+    StudentCounselorRenderSerializer,
 )
+
+# ── Shared response fragments ────────────────────────────────────────────────
 
 _render_error_detail = inline_serializer(
     name="TemplateRenderErrorDetail",
@@ -18,45 +20,55 @@ _render_error_detail = inline_serializer(
     },
 )
 
-render_template_for_testmail = extend_schema(
-    parameters=[
-        OpenApiParameter(
-            name="template_id", type=int, location=OpenApiParameter.QUERY,
-            required=True, description="ID of the template to render",
-        ),
-    ],
-    request=TemplateRenderTestmailRequestSerializer,
-    responses={
-        200: inline_serializer(name="TestmailRenderResponse", fields={"rendered": serializers.CharField()}),
-        400: inline_serializer(name="TestmailError400", fields={"error": serializers.CharField()}),
-        404: inline_serializer(name="TestmailError404", fields={"error": serializers.CharField()}),
-        422: inline_serializer(name="TestmailError422", fields={"error": _render_error_detail}),
-    },
-    description="Render a testmail template for a counselor, injecting their available slots into the context",
+_render_success = inline_serializer(
+    name="RenderSuccess",
+    fields={"rendered": serializers.CharField()},
 )
 
-templates_by_purpose = extend_schema(
-    parameters=[
-        OpenApiParameter(
-            name="purpose", type=str, location=OpenApiParameter.QUERY,
-            required=False, description="Filter templates by purpose key",
-        ),
-    ],
+_render_400 = inline_serializer(
+    name="RenderError400",
+    fields={"error": serializers.CharField()},
+)
+
+_render_422 = inline_serializer(
+    name="RenderError422",
+    fields={"error": _render_error_detail},
+)
+
+_not_found = inline_serializer(
+    name="NotFound",
+    fields={"error": serializers.CharField()},
+)
+
+
+def _render_schema(request_serializer_class, description):
+    return extend_schema(
+        request=request_serializer_class,
+        responses={
+            200: _render_success,
+            400: _render_400,
+            404: _not_found,
+            422: _render_422,
+        },
+        description=description,
+    )
+
+
+# ── Template CRUD ────────────────────────────────────────────────────────────
+
+list_templates = extend_schema(
+    request=None,
+    responses={200: TemplateSerializer(many=True)},
+    description="List all templates — one per purpose.",
+)
+
+get_template = extend_schema(
     request=None,
     responses={
-        200: TemplateSerializer(many=True),
-        400: inline_serializer(name="ErrorResponse", fields={"error": serializers.CharField()}),
+        200: TemplateSerializer,
+        404: _not_found,
     },
-    description="Get templates, optionally filtered by purpose key",
-)
-
-create_template = extend_schema(
-    request=TemplateSerializer,
-    responses={
-        201: TemplateSerializer,
-        400: inline_serializer(name="CreateTemplateError400", fields={"error": serializers.CharField()}),
-    },
-    description="Create a new template",
+    description="Get the template for a specific purpose.",
 )
 
 update_template = extend_schema(
@@ -64,35 +76,12 @@ update_template = extend_schema(
     responses={
         200: TemplateSerializer,
         400: inline_serializer(name="UpdateTemplateError400", fields={"error": serializers.CharField()}),
-        404: inline_serializer(name="UpdateTemplateError404", fields={"error": serializers.CharField()}),
+        404: _not_found,
     },
-    description="Partially update an existing template",
+    description="Update the content of the template for a specific purpose.",
 )
 
-delete_template = extend_schema(
-    request=None,
-    responses={
-        204: None,
-        404: inline_serializer(name="DeleteTemplateError404", fields={"error": serializers.CharField()}),
-    },
-    description="Delete a template by ID",
-)
-
-purposes_list = extend_schema(
-    request=None,
-    responses={
-        200: inline_serializer(
-            name="PurposeListResponse",
-            fields={
-                "key": serializers.CharField(),
-                "label": serializers.CharField(),
-                "default_template_id": serializers.IntegerField(allow_null=True),
-            },
-            many=True,
-        )
-    },
-    description="List all available purpose keys with their current default template",
-)
+# ── Context schema (dev tooling) ─────────────────────────────────────────────
 
 purpose_context_schema = extend_schema(
     request=None,
@@ -102,27 +91,65 @@ purpose_context_schema = extend_schema(
             fields={
                 "path": serializers.CharField(),
                 "type": serializers.CharField(),
-                "description": serializers.CharField(required=False),
+                "directive": serializers.CharField(),
+                "description": serializers.CharField(),
             },
             many=True,
         ),
-        404: inline_serializer(name="ContextSchemaError404", fields={"error": serializers.CharField()}),
+        404: _not_found,
     },
     description=(
         "Return a flat list of available template variables for a purpose. "
-        "Each entry has a dotted path (e.g. counselor.first_name), its type, "
-        "and an optional description. Array items appear as path[].field."
+        "Each entry has a dotted path, its type, a ready-to-paste directive, "
+        "and a description of how to use it. "
+        "Classical variables use {{path}}, lists use a for/endfor block, "
+        "and list-element variables use {{elem.field}} for use inside a loop."
     ),
 )
 
-set_default_template = extend_schema(
-    request=inline_serializer(
-        name="SetDefaultTemplateRequest",
-        fields={"template_id": serializers.IntegerField()},
-    ),
-    responses={
-        204: None,
-        400: inline_serializer(name="SetDefaultError400", fields={"error": serializers.CharField()}),
-    },
-    description="Set the default template for a purpose",
+# ── Render endpoints ─────────────────────────────────────────────────────────
+
+render_testmail = _render_schema(
+    CounselorRenderSerializer,
+    "Render the testmail template for a counselor, injecting their available slots.",
+)
+
+render_student_invitation = _render_schema(
+    StudentRenderSerializer,
+    "Render the student invitation email template for a student.",
+)
+
+render_student_reminder = _render_schema(
+    StudentRenderSerializer,
+    "Render the student reminder email template for a student.",
+)
+
+render_forced_appointment_assignment = _render_schema(
+    StudentCounselorRenderSerializer,
+    "Render the forced appointment assignment email template.",
+)
+
+render_appointment_invitation = _render_schema(
+    StudentCounselorRenderSerializer,
+    "Render the appointment invitation email template.",
+)
+
+render_counselor_preparation_instruction = _render_schema(
+    StudentCounselorRenderSerializer,
+    "Render the counselor preparation instruction email template.",
+)
+
+render_appointment_cancellation = _render_schema(
+    StudentCounselorRenderSerializer,
+    "Render the appointment cancellation email template.",
+)
+
+render_study_plan = _render_schema(
+    StudentRenderSerializer,
+    "Render the study plan document template for a student.",
+)
+
+render_appointment_minutes = _render_schema(
+    StudentCounselorRenderSerializer,
+    "Render the appointment minutes document template.",
 )

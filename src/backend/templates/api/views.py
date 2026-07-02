@@ -1,73 +1,53 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-
-from templates.models import Template, Purpose, TemplatePurpose
-from templates.api.serializers import TemplateSerializer, TemplateRenderTestmailRequestSerializer
-from templates.api import schemas
-from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, TestmailContext, flatten_context_schema
 from django.shortcuts import get_object_or_404
-from templates.api.render_views import render_template_for_testmail  # noqa: F401
 
-    
+from templates.models import Template, Purpose
+from templates.api.serializers import TemplateSerializer
+from templates.api import schemas
+from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, flatten_context_schema, annotate_directives
+from templates.api.render_views import (  # noqa: F401 — re-exported for urls.py
+    render_testmail,
+    render_student_invitation,
+    render_student_reminder,
+    render_forced_appointment_assignment,
+    render_appointment_invitation,
+    render_counselor_preparation_instruction,
+    render_appointment_cancellation,
+    render_study_plan,
+    render_appointment_minutes,
+)
 
 
-
-@schemas.templates_by_purpose
+@schemas.list_templates
 @api_view(["GET"])
-def templates_by_purpose(request):
-    purpose_key = request.query_params.get("purpose")
-    if purpose_key:
-        if purpose_key not in Purpose.values:
-            return Response({"error": "Invalid purpose"}, status=status.HTTP_400_BAD_REQUEST)
-        templates = Template.objects.filter(template_purposes__purpose=purpose_key)
-    else:
-        templates = Template.objects.all()
+def list_templates(request):
+    templates = Template.objects.all()
     serializer = TemplateSerializer(templates, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@schemas.create_template
-@api_view(["PUT"])
-def create_template(request):
-    serializer = TemplateSerializer(data=request.data)
-    if serializer.is_valid():
-        template = serializer.save()
-        return Response(TemplateSerializer(template).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+@schemas.get_template
+@api_view(["GET"])
+def get_template(request, purpose):
+    if purpose not in Purpose.values:
+        return Response({"error": f"Unknown purpose '{purpose}'"}, status=status.HTTP_404_NOT_FOUND)
+    template = get_object_or_404(Template, purpose=purpose)
+    return Response(TemplateSerializer(template).data, status=status.HTTP_200_OK)
 
 
 @schemas.update_template
 @api_view(["PUT"])
-def update_template(request, template_id):
-    template = get_object_or_404(Template, id=template_id)
-
+def update_template(request, purpose):
+    if purpose not in Purpose.values:
+        return Response({"error": f"Unknown purpose '{purpose}'"}, status=status.HTTP_404_NOT_FOUND)
+    template, _ = Template.objects.get_or_create(purpose=purpose)
     serializer = TemplateSerializer(template, data=request.data, partial=True)
     if serializer.is_valid():
         template = serializer.save()
         return Response(TemplateSerializer(template).data, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@schemas.delete_template
-@api_view(["DELETE"])
-def delete_template(request, template_id):
-    template = get_object_or_404(Template, id=template_id)
-    template.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
-
-@schemas.purposes_list
-@api_view(["GET"])
-def purposes_list(request):
-    result = []
-    for value, label in Purpose.choices:
-        default_tp = TemplatePurpose.objects.filter(purpose=value, default=True).first()
-        result.append({
-            "key": value,
-            "label": label,
-            "default_template_id": default_tp.template_id if default_tp else None,
-        })
-    return Response(result, status=status.HTTP_200_OK)
 
 
 @schemas.purpose_context_schema
@@ -79,20 +59,7 @@ def purpose_context_schema(request, purpose):
             status=status.HTTP_404_NOT_FOUND,
         )
     schema = PURPOSE_CONTEXT_REGISTRY[purpose].model_json_schema()
-    return Response(flatten_context_schema(schema), status=status.HTTP_200_OK)
+    flat = flatten_context_schema(schema)
+    return Response(annotate_directives(flat), status=status.HTTP_200_OK)
 
-
-@schemas.set_default_template
-@api_view(["PUT"])
-def set_default_template(request, purpose):
-    if purpose not in Purpose.values:
-        return Response({"error": "Invalid purpose"}, status=status.HTTP_400_BAD_REQUEST)
-    template_id = request.data.get("template_id")
-    if not template_id:
-        return Response({"error": "template_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-    if not TemplatePurpose.objects.filter(purpose=purpose, template_id=template_id).exists():
-        return Response({"error": "Template is not linked to this purpose"}, status=status.HTTP_400_BAD_REQUEST)
-    TemplatePurpose.objects.filter(purpose=purpose, default=True).update(default=False)
-    TemplatePurpose.objects.filter(purpose=purpose, template_id=template_id).update(default=True)
-    return Response(status=status.HTTP_204_NO_CONTENT)
 

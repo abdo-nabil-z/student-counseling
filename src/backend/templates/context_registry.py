@@ -10,11 +10,12 @@ Each entry is a subclass of BaseModel with a `build(**kwargs)` classmethod.
 from pydantic import BaseModel
 
 from counselors.models import Counselor
-from counselors.template_context import CounselorContext, AllAvailableBlocksContext
+from counselors.template_context import CounselorContext, AllAvailableSlotsContext
 from students.template_context import StudentContext
 from students.models import Student
 from templates.models import Purpose
-
+from appointments.appointment_context import AppointmentContext
+from appointments.models import Appointment
 
 
 
@@ -30,28 +31,28 @@ class TestmailContext(BaseModel):
 
 
 class StudentAndBlocksContext(BaseModel):
-    available_blocks: AllAvailableBlocksContext
+    available_slots: AllAvailableSlotsContext
     student: StudentContext
 
     @classmethod
     def build(cls,student_id: int) -> "StudentAndBlocksContext":
-        available_blocks = AllAvailableBlocksContext.build()
+        available_slots = AllAvailableSlotsContext.build()
         student = StudentContext.from_model(Student.objects.get(id=student_id))
-        return cls(available_blocks=available_blocks, student=student)
+        return cls(available_slots=available_slots, student=student)
 
 
 
 class AppointmentStudentCounselorContext(BaseModel):
     student: StudentContext
     counselor: CounselorContext
-    # appointment: TODO
+    appointment: AppointmentContext
 
     @classmethod
-    def build(cls, student_id: int, counselor_id: int) -> "AppointmentStudentCounselorContext":
+    def build(cls, student_id: int, counselor_id: int, appointment_id: int) -> "AppointmentStudentCounselorContext":
         student = StudentContext.from_model(Student.objects.get(id=student_id))
         counselor = CounselorContext.from_model(Counselor.objects.get(id=counselor_id))
-        #TODO session
-        return cls(student=student, counselor=counselor)
+        appointment = AppointmentContext.from_model(Appointment.objects.get(id=appointment_id))
+        return cls(student=student, counselor=counselor, appointment=appointment)
 
 
 class StudyPlanContext(BaseModel):
@@ -66,11 +67,11 @@ class StudyPlanContext(BaseModel):
 class AppointmentMinutesContext(BaseModel):
     student: StudentContext
     counselor: CounselorContext
-    # appointment: TODO
+    appointment: AppointmentContext
     # minutes_elements: TODO
     
     @classmethod
-    def build(cls, student_id: int, counselor_id: int) -> "AppointmentMinutesContext":
+    def build(cls, student_id: int, counselor_id: int, appointment_id: int) -> "AppointmentMinutesContext":
         raise NotImplementedError("AppointmentMinutesContext.build is not implemented yet")
 
     
@@ -101,7 +102,7 @@ PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
 def flatten_context_schema(schema: dict) -> list[dict]:
     """
     Convert a Pydantic model_json_schema() dict into a flat list of
-    { path, type, ?description } entries suitable for a template editor.
+    { path, type } entries suitable for a template editor.
 
     - Intermediate objects are NOT emitted — only their leaf fields.
     - Arrays ARE emitted (so the author knows they can loop), plus each
@@ -122,22 +123,65 @@ def flatten_context_schema(schema: dict) -> list[dict]:
             field = resolve(raw)
             path = f"{prefix}.{field_name}" if prefix else field_name
             field_type = field.get("type")
-            description = field.get("description")
-
-            base: dict = {"path": path, "type": field.get("format") or field_type or "unknown"}
-            if description:
-                base["description"] = description
 
             if field_type == "object":
                 walk(field, path)
             elif field_type == "array":
-                result.append({"path": path, "type": "array", **({"description": description} if description else {})})
+                result.append({"path": path, "type": "array"})
                 items = resolve(field.get("items", {}))
                 if items.get("type") == "object":
                     walk(items, f"{path}[]")
             else:
-                result.append(base)
+                result.append({"path": path, "type": field.get("format") or field_type or "unknown"})
 
     walk(schema, "")
+    return result
+
+
+def _singularize(name: str) -> str:
+    """Strip a trailing 's' to derive a simple loop-variable name (e.g. 'slots' -> 'slot')."""
+    return name[:-1] if name.endswith("s") else name
+
+
+def annotate_directives(flat: list[dict]) -> list[dict]:
+    """
+    Enrich each entry from flatten_context_schema() with:
+      - 'directive'  : ready-to-paste template directive
+      - 'description': human-readable placement instruction
+
+    Three cases:
+      List              (type == "array")    -> {% for elem in path %} … {% endfor %}
+      List Element var  ("[]" in path)       -> {{elem.sub_path}}
+      Classical         (plain scalar leaf)  -> {{path}}
+    """
+    result = []
+    for entry in flat:
+        path: str = entry["path"]
+        field_type: str = entry["type"]
+        new_entry = {**entry}
+
+        if field_type == "array":
+            list_name = path.rsplit(".", 1)[-1]
+            elem_var = _singularize(list_name)
+            new_entry["directive"] = f"{{% for {elem_var} in {path} %}}\n\n{{% endfor %}}"
+            new_entry["description"] = "Place to iterate over the List"
+
+        elif "[]" in path:
+            bracket_idx = path.index("[]")
+            list_prefix = path[:bracket_idx]
+            suffix = path[bracket_idx + 2:]          # e.g. ".start_time"
+            list_name = list_prefix.rsplit(".", 1)[-1]
+            elem_var = _singularize(list_name)
+            modified = elem_var + suffix
+            new_entry["directive"] = "{{" + modified + "}}"
+            new_entry["description"] = (
+                f"To be placed INSIDE a loop over {list_name}. Will be replaced by the actual value."
+            )
+
+        else:
+            new_entry["directive"] = "{{" + path + "}}"
+            new_entry["description"] = "Can be placed to be replaced by the actual value."
+
+        result.append(new_entry)
     return result
 
