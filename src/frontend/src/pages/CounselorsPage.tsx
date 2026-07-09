@@ -41,6 +41,10 @@ function CounselorsPage() {
     navigate(`/counselors/${c.id}/mail`, { state: { counselor: c } });
   }
 
+  function openslots() {
+    navigate("/slots");
+  }
+
   async function saveDraft() {
     if (!draft) return;
     setSaving(true);
@@ -89,7 +93,7 @@ function CounselorsPage() {
                 <th>Chair</th>
                 <th>Office</th>
                 <th>Email</th>
-                <th>CC</th>
+                {/* <th>CC</th> */}
                 <th>Actions</th>
               </tr>
             </thead>
@@ -108,11 +112,12 @@ function CounselorsPage() {
                   <td>{c.chair}</td>
                   <td>{c.office_address}</td>
                   <td>{c.email}</td>
-                  <td>{c.additional_cc.join(", ")}</td>
+                  {/* <td>{c.additional_cc.join(", ")}</td> */}
                   <td>
                     <button onClick={() => setDraft({ ...c })}>Edit</button>
                     <button onClick={() => openMail(c)}>Mail</button>
                     <button onClick={() => removeCounselor(c)}>Delete</button>
+                    <button onClick={() => openslots()}>Slots</button>
                   </td>
                 </tr>
               ))}

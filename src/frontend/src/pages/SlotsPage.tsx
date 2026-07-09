@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../api/client";
 import type { Counselor } from "../types/counselor";
 import type { Slot } from "../types/slots";
 
 function SlotsPage() {
+  const [searchParams] = useSearchParams();
   const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [selectedId, setSelectedId] = useState<number | "">("");
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -17,16 +19,17 @@ function SlotsPage() {
   useEffect(() => {
     api
       .get<Counselor[]>("/counselors/")
-      .then((res) => setCounselors(res.data))
+      .then((res) => {
+        setCounselors(res.data);
+        const param = searchParams.get("counselor");
+        if (param) setSelectedId(Number(param));
+        else if (res.data.length > 0) setSelectedId(res.data[0].id);
+      })
       .catch((err) => setError(err.message));
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
-    if (selectedId === "") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSlots([]);
-      return;
-    }
+    if (selectedId === "") return;
     api
       .get<Slot[]>(`/counselors/${selectedId}/slots/`)
       .then((res) => setSlots(res.data))
@@ -50,12 +53,11 @@ function SlotsPage() {
       setEnd("");
       setReloadKey((k) => k + 1);
     } catch (err) {
-      // backend rejects overlapping slots / start>=end with a 400
       const e = err as { response?: { data?: unknown }; message: string };
-      const detail = e.response?.data
-        ? JSON.stringify(e.response.data)
-        : e.message;
-      alert("Create failed: " + detail);
+      alert(
+        "Create failed: " +
+          (e.response?.data ? JSON.stringify(e.response.data) : e.message),
+      );
     } finally {
       setSaving(false);
     }
@@ -68,7 +70,6 @@ function SlotsPage() {
 
       <div className="card">
         <h3>Create Availability Slot</h3>
-
         <label>Counselor</label>
         <select
           value={selectedId}
@@ -83,7 +84,6 @@ function SlotsPage() {
             </option>
           ))}
         </select>
-
         <label>Date</label>
         <input
           type="date"
@@ -102,7 +102,6 @@ function SlotsPage() {
           value={end}
           onChange={(e) => setEnd(e.target.value)}
         />
-
         <div style={{ marginTop: "1rem" }}>
           <button onClick={createSlot} disabled={saving}>
             {saving ? "Saving…" : "Create Slot"}

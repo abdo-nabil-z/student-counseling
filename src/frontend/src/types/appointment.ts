@@ -3,15 +3,15 @@ import type { Student } from "./student";
 import type { Counselor } from "./counselor";
 import type { DocumentInfo } from "./document";
 
-// The backend may return student/counselor either as an ID or as a nested object,
-// so we accept both shapes.
+// Matches the backend Appointment: start_time + duration_minutes (no end_time).
+// student/counselor come back nested (or as an ID); slot may be null.
 export interface Appointment {
   id: number;
   student: number | Student;
   counselor: number | Counselor;
-  slot: Slot;
+  slot: Slot | null;
   start_time: string;
-  end_time: string;
+  duration_minutes: number;
   status: "pending" | "booked" | "completed" | "cancelled" | "missed";
   location: string | null;
   minutes: DocumentInfo | null;

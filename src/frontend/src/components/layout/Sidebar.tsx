@@ -11,11 +11,13 @@ function Sidebar() {
         <Link to="/students">Students</Link>
         <Link to="/counselors">Counselors</Link>
         <Link to="/slots">Availabilty Slots </Link>
+        <Link to="/appointments">Appointments</Link>
+        {/* <Link to="/templates">Templates</Link> */}
         {/* <Link to="/planning">Planning</Link> */}
         {/* <Link to="/student-mail">Student Mail</Link> */}
         {/* <Link to="/counselor-mail">Documents</Link> */}
         {/* <Link to="/documents">Sessions</Link> */}
-        <Link to="/appointments">Appointments</Link>
+
         {/* <Link to="/minutes">Minutes</Link> */}
         {/* <Link to="/no-shows">No-Shows</Link> */}
         {/* <Link to="/final-bundle">Final Bundle</Link> */}

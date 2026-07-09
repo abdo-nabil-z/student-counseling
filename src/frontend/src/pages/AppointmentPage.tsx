@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import type { Counselor } from "../types/counselor";
 import type { Student } from "../types/student";
@@ -17,15 +18,16 @@ const STATUS_COLORS: Record<string, string> = {
 function addMinutes(hhmm: string, mins: number): string {
   const [h, m] = hhmm.split(":").map(Number);
   const total = h * 60 + m + mins;
-  const nh = Math.floor(total / 60) % 24;
-  const nm = total % 60;
-  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
-
+function minutesBetween(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  return eh * 60 + em - (sh * 60 + sm);
+}
 function idOf(v: number | { id: number }): number {
   return typeof v === "object" ? v.id : v;
 }
-
 function TrashIcon() {
   return (
     <svg
@@ -45,13 +47,12 @@ function TrashIcon() {
   );
 }
 
-function AppointmentsPage() {
-  // reference data
+function AppointmentPage() {
+  const navigate = useNavigate();
   const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  // booking form
   const [counselorId, setCounselorId] = useState("");
   const [slots, setSlots] = useState<Slot[]>([]);
   const [slotId, setSlotId] = useState("");
@@ -60,16 +61,14 @@ function AppointmentsPage() {
   const [studentId, setStudentId] = useState("");
   const [location, setLocation] = useState("");
 
-  // ui state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // reload the data that can change after document/appointment writes
   function reloadAll() {
     Promise.all([
-      api.get<Student[]>("/students/students/"),
+      api.get<Student[]>("/students/"),
       api.get<Appointment[]>("/appointments/"),
     ])
       .then(([s, a]) => {
@@ -79,11 +78,10 @@ function AppointmentsPage() {
       .catch((e) => setError(e.message));
   }
 
-  // initial load
   useEffect(() => {
     Promise.all([
       api.get<Counselor[]>("/counselors/"),
-      api.get<Student[]>("/students/students/"),
+      api.get<Student[]>("/students/"),
       api.get<Appointment[]>("/appointments/"),
     ])
       .then(([c, s, a]) => {
@@ -95,7 +93,6 @@ function AppointmentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // fetch this counselor's slots
   useEffect(() => {
     if (!counselorId) return;
     api
@@ -104,17 +101,16 @@ function AppointmentsPage() {
       .catch(() => setSlots([]));
   }, [counselorId]);
 
-  function onCounselorChange(value: string) {
-    setCounselorId(value);
+  function onCounselorChange(v: string) {
+    setCounselorId(v);
     setSlotId("");
     setStartTime("");
     setEndTime("");
-    if (!value) setSlots([]);
+    if (!v) setSlots([]);
   }
-
-  function onSlotChange(value: string) {
-    setSlotId(value);
-    const slot = slots.find((s) => String(s.id) === value);
+  function onSlotChange(v: string) {
+    setSlotId(v);
+    const slot = slots.find((s) => String(s.id) === v);
     if (slot) {
       const s = slot.start_time.slice(0, 5);
       setStartTime(s);
@@ -126,27 +122,52 @@ function AppointmentsPage() {
   }
 
   const selectedSlot = slots.find((s) => String(s.id) === slotId) || null;
-
+  const apptEnd = (a: Appointment) =>
+    addMinutes(a.start_time.slice(11, 16), a.duration_minutes);
   const bookedInSlot = appointments
     .filter((a) => a.slot && a.slot.id === Number(slotId))
-    .map((a) => `${a.start_time.slice(11, 16)}–${a.end_time.slice(11, 16)}`);
-
+    .map((a) => `${a.start_time.slice(11, 16)}–${apptEnd(a)}`);
   const availableStudents = students.filter(
     (s) => !appointments.some((a) => idOf(a.student) === s.id),
   );
 
-  const studentObj = (val: number | Student): Student | undefined =>
+  const studentObj = (val: number | Student) =>
     typeof val === "object" ? val : students.find((x) => x.id === val);
-
+  const counselorObj = (val: number | Counselor) =>
+    typeof val === "object" ? val : counselors.find((x) => x.id === val);
   const studentLabel = (val: number | Student) => {
     const s = studentObj(val);
     return s ? `${s.first_name} ${s.last_name}` : `#${String(val)}`;
   };
   const counselorLabel = (val: number | Counselor) => {
-    const c =
-      typeof val === "object" ? val : counselors.find((x) => x.id === val);
+    const c = counselorObj(val);
     return c ? `${c.title} ${c.last_name}` : `#${String(val)}`;
   };
+
+  function mailStudent(a: Appointment) {
+    const s = studentObj(a.student);
+    if (!s) return;
+    navigate(`/students/${s.id}/mail`, {
+      state: {
+        student: s,
+        date: a.start_time.slice(0, 10),
+        time: a.start_time.slice(11, 16),
+        place: a.location ?? "",
+      },
+    });
+  }
+  function mailCounselor(a: Appointment) {
+    const c = counselorObj(a.counselor);
+    if (!c) return;
+    navigate(`/counselors/${c.id}/mail`, {
+      state: {
+        counselor: c,
+        date: a.start_time.slice(0, 10),
+        time: a.start_time.slice(11, 16),
+        place: a.location ?? "",
+      },
+    });
+  }
 
   async function uploadMinutes(appointmentId: number, file: File) {
     const fd = new FormData();
@@ -159,7 +180,6 @@ function AppointmentsPage() {
       alert("Minutes upload failed: " + (err as Error).message);
     }
   }
-
   async function deleteDoc(docId: number) {
     if (!window.confirm("Delete this document?")) return;
     try {
@@ -182,20 +202,21 @@ function AppointmentsPage() {
       setFormError("Pick a counselor, slot, student, and start/end time.");
       return;
     }
-    if (startTime >= endTime) {
-      setFormError("Start time must be before end time.");
+    const duration = minutesBetween(startTime, endTime);
+    if (duration <= 0) {
+      setFormError("End time must be after start time.");
       return;
     }
     const slotStart = selectedSlot.start_time.slice(0, 5);
     const slotEnd = selectedSlot.end_time.slice(0, 5);
     if (startTime < slotStart || endTime > slotEnd) {
-      const ok = window.confirm(
-        `The time ${startTime}–${endTime} is outside the slot window ` +
-          `(${slotStart}–${slotEnd}). Create it anyway?`,
-      );
-      if (!ok) return;
+      if (
+        !window.confirm(
+          `The time ${startTime}–${endTime} is outside the slot window (${slotStart}–${slotEnd}). Create it anyway?`,
+        )
+      )
+        return;
     }
-
     setSaving(true);
     setFormError(null);
     try {
@@ -204,7 +225,7 @@ function AppointmentsPage() {
         counselor: Number(counselorId),
         slot: Number(slotId),
         start_time: `${selectedSlot.date}T${startTime}:00`,
-        end_time: `${selectedSlot.date}T${endTime}:00`,
+        duration_minutes: duration,
         location: location || null,
       });
       setStudentId("");
@@ -212,16 +233,17 @@ function AppointmentsPage() {
       reloadAll();
     } catch (e) {
       const err = e as { response?: { data?: unknown }; message: string };
-      const detail = err.response?.data
-        ? JSON.stringify(err.response.data)
-        : err.message;
-      setFormError("Could not create appointment: " + detail);
+      setFormError(
+        "Could not create appointment: " +
+          (err.response?.data
+            ? JSON.stringify(err.response.data)
+            : err.message),
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  // renders a document as a link + a delete button, or "—"
   function DocCell({ doc }: { doc: DocumentInfo | null | undefined }) {
     if (!doc) return <>—</>;
     return (
@@ -232,7 +254,6 @@ function AppointmentsPage() {
         <button
           className="icon-btn icon-btn--danger"
           title="Delete document"
-          aria-label="Delete document"
           onClick={() => deleteDoc(doc.id)}
         >
           <TrashIcon />
@@ -244,16 +265,13 @@ function AppointmentsPage() {
   return (
     <section>
       <h2>Appointments</h2>
-
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
       {!loading && !error && (
         <>
-          {/* ---- Book a new appointment ---- */}
           <div className="card" style={{ marginBottom: "1.5rem" }}>
             <h3>Book a new appointment</h3>
-
             <label>Counselor</label>
             <select
               value={counselorId}
@@ -307,6 +325,11 @@ function AppointmentsPage() {
                 />
               </div>
             </div>
+            {startTime && endTime && minutesBetween(startTime, endTime) > 0 && (
+              <p style={{ fontSize: 13, color: "#666" }}>
+                Duration: {minutesBetween(startTime, endTime)} min
+              </p>
+            )}
 
             <label>Student</label>
             <select
@@ -321,15 +344,14 @@ function AppointmentsPage() {
               ))}
             </select>
 
-            <label>Location</label>
+            <label>Place / location</label>
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              // placeholder="e.g. AE22-R273 or Zoom link"
+              placeholder="e.g. AE22-R273 or Zoom link"
             />
 
             {formError && <p style={{ color: "red" }}>{formError}</p>}
-
             <div style={{ marginTop: "1rem" }}>
               <button onClick={createAppointment} disabled={saving}>
                 {saving ? "Creating…" : "Create appointment"}
@@ -337,7 +359,6 @@ function AppointmentsPage() {
             </div>
           </div>
 
-          {/* ---- All appointments ---- */}
           <div className="page-header">
             <h3>All appointments</h3>
             <span>{appointments.length} total</span>
@@ -353,15 +374,16 @@ function AppointmentsPage() {
                   <th>Time</th>
                   <th>Place</th>
                   <th>Status</th>
-                  <th>Study plan</th>
-                  {/* <th>Final plan</th> */}
+                  <th>Initial plan</th>
+                  <th>Final plan</th>
                   <th>Minutes</th>
+                  <th>Mail</th>
                 </tr>
               </thead>
               <tbody>
                 {appointments.length === 0 && (
                   <tr>
-                    <td colSpan={9}>No appointments yet.</td>
+                    <td colSpan={10}>No appointments yet.</td>
                   </tr>
                 )}
                 {appointments.map((a) => {
@@ -372,7 +394,7 @@ function AppointmentsPage() {
                       <td>{counselorLabel(a.counselor)}</td>
                       <td>{a.start_time.slice(0, 10)}</td>
                       <td>
-                        {a.start_time.slice(11, 16)}–{a.end_time.slice(11, 16)}
+                        {a.start_time.slice(11, 16)}–{apptEnd(a)}
                       </td>
                       <td>{a.location || "—"}</td>
                       <td>
@@ -391,9 +413,9 @@ function AppointmentsPage() {
                       <td>
                         <DocCell doc={s?.initial_study_plan} />
                       </td>
-                      {/* <td>
+                      <td>
                         <DocCell doc={s?.final_study_plan} />
-                      </td> */}
+                      </td>
                       <td>
                         {a.minutes && (
                           <>
@@ -414,6 +436,22 @@ function AppointmentsPage() {
                           />
                         </label>
                       </td>
+                      <td>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                          }}
+                        >
+                          <button onClick={() => mailStudent(a)}>
+                            Mail student
+                          </button>
+                          <button onClick={() => mailCounselor(a)}>
+                            Mail counselor
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -426,4 +464,4 @@ function AppointmentsPage() {
   );
 }
 
-export default AppointmentsPage;
+export default AppointmentPage;
