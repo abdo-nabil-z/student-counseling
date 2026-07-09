@@ -8,6 +8,9 @@ import SlotsPage from "./pages/SlotsPage";
 import StudentMailPage from "./pages/StudentMailPage";
 import CounselorMailPage from "./pages/CounselorMailPage";
 import AppointmentsPage from "./pages/AppointmentPage";
+import TemplatesPage from "./pages/TemplatesPage";
+// ...inside <Routes><Route path="/" element={<AppLayout />}>...
+
 import "./App.css";
 
 function App() {
@@ -27,6 +30,7 @@ function App() {
             path="counselors/:counselorId/mail"
             element={<CounselorMailPage />}
           />
+          <Route path="templates" element={<TemplatesPage />} />
           <Route path="slots" element={<SlotsPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
         </Route>
