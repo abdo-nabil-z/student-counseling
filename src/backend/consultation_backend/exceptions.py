@@ -5,6 +5,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
 
+from consultation_backend.api_exceptions import ApplicationAPIException
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,9 @@ def _get_error_message(exception: Exception, response: Response) -> str:
 
 
 def _get_error_details(exception: Exception, response: Response) -> Any:
+    if isinstance(exception, ApplicationAPIException):
+        return exception.error_details
+    
     if isinstance(exception, ValidationError):
         return response.data
 

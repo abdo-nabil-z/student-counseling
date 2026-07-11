@@ -1,8 +1,10 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import NotFound
 from django.shortcuts import get_object_or_404
 
+from consultation_backend.api_serializers import APIErrorResponseSerializer
 from templates.models import Template, Purpose
 from templates.api.serializers import TemplateSerializer
 from templates.api import schemas
@@ -32,7 +34,10 @@ def list_templates(request):
 @api_view(["GET"])
 def get_template(request, purpose):
     if purpose not in Purpose.values:
-        return Response({"error": f"Unknown purpose '{purpose}'"}, status=status.HTTP_404_NOT_FOUND)
+        raise NotFound(
+            detail=f"Unknown template purpose '{purpose}'.",
+            code="unknown_template_purpose",
+        )
     template = get_object_or_404(Template, purpose=purpose)
     return Response(TemplateSerializer(template).data, status=status.HTTP_200_OK)
 
@@ -41,25 +46,38 @@ def get_template(request, purpose):
 @api_view(["PUT"])
 def update_template(request, purpose):
     if purpose not in Purpose.values:
-        return Response({"error": f"Unknown purpose '{purpose}'"}, status=status.HTTP_404_NOT_FOUND)
+        raise NotFound(
+            detail=f"Unknown template purpose '{purpose}'.",
+            code="unknown_template_purpose",
+        )
+    
     template, _ = Template.objects.get_or_create(purpose=purpose)
     serializer = TemplateSerializer(template, data=request.data, partial=True)
-    if serializer.is_valid():
-        template = serializer.save()
-        return Response(TemplateSerializer(template).data, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    serializer.is_valid(raise_exception=True)
+    template = serializer.save()
+
+    return Response(
+        TemplateSerializer(template).data,
+        status=status.HTTP_200_OK,
+    )
 
 
 @schemas.purpose_context_schema
 @api_view(["GET"])
 def purpose_context_schema(request, purpose):
     if purpose not in PURPOSE_CONTEXT_REGISTRY:
-        return Response(
-            {"error": f"No context schema registered for purpose '{purpose}'"},
-            status=status.HTTP_404_NOT_FOUND,
+        raise NotFound(
+            detail=(
+                f"No context schema is registered for purpose "
+                f"'{purpose}'."
+            ),
+            code="template_context_schema_not_found",
         )
+    
     schema = PURPOSE_CONTEXT_REGISTRY[purpose].model_json_schema()
     flat = flatten_context_schema(schema)
+    
     return Response(annotate_directives(flat), status=status.HTTP_200_OK)
 
 

@@ -7,8 +7,9 @@ from drf_spectacular.types import OpenApiTypes
 
 from django.shortcuts import get_object_or_404
 
+from consultation_backend.api_serializers import APIErrorResponseSerializer
 from appointments.models import Appointment
-from appointments.api.serializers import AppointmentSerializer, AppointmentDetailSerializer, AppointmentUpdateSerializer
+from appointments.api.serializers import AppointmentSerializer, AppointmentDetailSerializer, AppointmentUpdateSerializer, AppointmentFilterSerializer
 from documents.api.serializers import DocumentInfoSerializer
 from documents.services import attach_document
 
@@ -17,7 +18,7 @@ from documents.services import attach_document
         request=AppointmentSerializer,
         responses={
             201: AppointmentSerializer,
-            400: OpenApiResponse(description="Validation errors")
+            400: APIErrorResponseSerializer,
         },
         description="Create a new Appointment linking the student and the counselor and the time slot",
         tags=["Appointments"],
@@ -26,11 +27,12 @@ from documents.services import attach_document
 def create_appointment(request):
     serializer = AppointmentSerializer(data = request.data)
 
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.is_valid(raise_exception=True)
+    appointment = serializer.save()
+
+    response_serializer = AppointmentSerializer(appointment)
+
+    return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 
@@ -39,26 +41,35 @@ def create_appointment(request):
             OpenApiParameter("student", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Filter by student ID"),
             OpenApiParameter("counselor", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Filter by counselor ID"),
         ],
-        responses={200: AppointmentDetailSerializer(many=True)},
+        responses={
+            200: AppointmentDetailSerializer(many=True),
+            400: APIErrorResponseSerializer,
+        },
         description="List all appointments, optionally filtered by student and/or counselor",
         tags=["Appointments"],
 )
 @api_view(["GET"])
 def list_appointments(request):
     appointments = Appointment.objects.all()
-    student = request.query_params.get("student")
-    counselor = request.query_params.get("counselor")
-    if student:
-        appointments = appointments.filter(student_id=student)
-    if counselor:
-        appointments = appointments.filter(counselor_id=counselor)
+
+    filter_serializer = AppointmentFilterSerializer(data=request.query_params)
+    filter_serializer.is_valid(raise_exception=True)
+
+    student_id = filter_serializer.validated_data.get("student")
+    counselor_id = filter_serializer.validated_data.get("counselor")
+
+    if student_id is not None:
+        appointments = appointments.filter(student_id=student_id)
+    if counselor_id is not None:
+        appointments = appointments.filter(counselor_id=counselor_id)
+    
     return Response(AppointmentDetailSerializer(appointments, many=True).data)
 
 
 @extend_schema(
         responses={
             200: AppointmentDetailSerializer,
-            404: OpenApiResponse(description="Appointment not found"),
+            404: APIErrorResponseSerializer,
         },
         description="Retrieve a specific appointment by ID.",
         tags=["Appointments"],
@@ -68,8 +79,8 @@ def list_appointments(request):
     request=AppointmentUpdateSerializer,
     responses={
         200: AppointmentUpdateSerializer,
-        400: OpenApiResponse(description="Validation errors"),
-        404: OpenApiResponse(description="Appointment not found"),
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer,
     },
     description="Update an appointment. Use this for rescheduling or updating the appointment information",
     tags=["Appointments"],
@@ -86,12 +97,12 @@ def detail_update_appointment(request, appointment_id):
     if request.method == "PATCH":
         serializer = AppointmentUpdateSerializer(appointment, data=request.data, partial=True)
 
-        if serializer.is_valid():
-            appointment = serializer.save()
-            response_serializer = AppointmentDetailSerializer(appointment)
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
+        serializer.is_valid(raise_exception=True)
+        appointment = serializer.save()
+
+        response_serializer = AppointmentDetailSerializer(appointment)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema(

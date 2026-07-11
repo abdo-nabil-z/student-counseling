@@ -6,6 +6,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResp
 
 from django.shortcuts import get_object_or_404
 
+from consultation_backend.api_serializers import APIErrorResponseSerializer
 from students.models import Student
 from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer, StudentUpdateSerializer
 from documents.api.serializers import DocumentInfoSerializer
@@ -25,7 +26,7 @@ from counselors.models import Slot
             request=StudentCreateSerializer,
             responses={
                 201: StudentDetailSerializer,
-                400: OpenApiResponse(description="Validation errors"),
+                400: APIErrorResponseSerializer,
             },
             description="Create a new Student. Returns the created object on success.",
             examples=[OpenApiExample("Valid request",
@@ -46,13 +47,11 @@ def create_list_students(request):
     if request.method == "POST":
         serializer = StudentCreateSerializer(data=request.data)
 
-        if serializer.is_valid():
-            student = serializer.save()
+        serializer.is_valid(raise_exception=True)
+        student = serializer.save()
 
-            response_serializer = StudentDetailSerializer(student)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        response_serializer = StudentDetailSerializer(student)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 
@@ -66,7 +65,7 @@ def create_list_students(request):
         request=StudentUpdateSerializer,
         responses={
             200: StudentDetailSerializer,
-            400: OpenApiResponse(description="Validation errors")
+            400: APIErrorResponseSerializer,
         },
         description="Update a student",
         tags=["Students"]
@@ -88,12 +87,12 @@ def detail_student(request, student_id):
     if request.method == "PATCH":
         serializer = StudentUpdateSerializer(student, data=request.data, partial=True)
         
-        if serializer.is_valid():
-            student = serializer.save()
-            response_serializer = StudentDetailSerializer(student)    
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        student = serializer.save()
+
+        response_serializer = StudentDetailSerializer(student)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     if request.method == "DELETE":
         student.delete()
@@ -189,7 +188,7 @@ def upload_final_study_plan(request, student_id):
                     "deleted_slots": drf_serializers.IntegerField(),
                 },
             ),
-            400: OpenApiResponse(description="Invalid confirmation value"),
+            400: APIErrorResponseSerializer,
         },
         description="Delete all semester data: appointments, students, their documents, and counselor slots.",
         tags=["Students"],
@@ -199,11 +198,16 @@ def cleanup_semester_data(request):
     confirm = request.data.get("confirm")
 
     if confirm != "DELETE_SEMESTER_DATA":
-        return Response(
+        raise drf_serializers.ValidationError(
             {
-                "confirm": "You must send confirm='DELETE_SEMESTER_DATA' to run semester cleanup."
-            },
-            status = status.HTTP_400_BAD_REQUEST,
+                "confirm": [
+                    (
+                        "You must send "
+                        "confirm='DELETE_SEMESTER_DATA' "
+                        "to run semester cleanup."
+                    )
+                ]
+            }
         )
     
     appointments = Appointment.objects.all()
