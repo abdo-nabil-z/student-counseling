@@ -162,6 +162,8 @@ When reporting a `500` error, provide:
 
 Some existing endpoints still return endpoint-specific error structures because they manually construct their error responses. These endpoints will be migrated to the standard structure as part of the endpoint error-standardization work.
 
+Multipart file-upload endpoints still use their previous field-error format. They will be migrated to the standard error structure during the document and file-handling batch.
+
 
 ## Templates
 

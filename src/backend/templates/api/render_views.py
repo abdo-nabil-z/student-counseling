@@ -6,6 +6,10 @@ from django.shortcuts import get_object_or_404
 from jinja2.sandbox import SandboxedEnvironment
 from jinja2 import TemplateSyntaxError, UndefinedError, StrictUndefined, meta as jinja2_meta
 
+from consultation_backend.api_exceptions import (
+    TemplateContextNotImplemented,
+    TemplateRenderFailed,
+)
 from templates.models import Template, Purpose
 from templates.api import schemas
 from templates.api.serializers import (
@@ -65,16 +69,27 @@ def render_from_template(template_str, **context):
 def _render_purpose(request, purpose, serializer_class, context_class):
     template = get_object_or_404(Template, purpose=purpose)
     serializer = serializer_class(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer.is_valid(raise_exception=True)
+
     try:
         ctx = context_class.build(**serializer.validated_data)
-    except NotImplementedError as e:
-        return Response({"error": str(e)}, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+    except NotImplementedError as exc:
+        raise TemplateContextNotImplemented(
+            details={
+                "purpose": purpose,
+            }
+        ) from exc
+    
     try:
         rendered = render_from_template(template.content, **ctx.model_dump())
-    except TemplateRenderError as e:
-        return Response({"error": e.to_dict()}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    
+    except TemplateRenderError as exc:
+        raise TemplateRenderFailed(
+            details=exc.to_dict()
+        ) from exc
+
     return Response({"rendered": rendered}, status=status.HTTP_200_OK)
 
 
