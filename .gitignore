@@ -6,6 +6,7 @@
 **/build/
 **/bin/
 **/media/
+**/logs/
 **/db.sqlite3
 *.pyc
 .DS_Store

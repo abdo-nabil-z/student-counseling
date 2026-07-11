@@ -20,6 +20,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
+handler404 = "consultation_backend.error_handlers.api_not_found"
+handler500 = "consultation_backend.error_handlers.api_server_error"
+
 urlpatterns = [
     # Apps Urls
     path('admin/', admin.site.urls),
