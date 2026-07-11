@@ -51,7 +51,7 @@ def update_template(request, purpose):
             code="unknown_template_purpose",
         )
     
-    template, _ = Template.objects.get_or_create(purpose=purpose)
+    template = get_object_or_404(Template, purpose=purpose)
     serializer = TemplateSerializer(template, data=request.data, partial=True)
     
     serializer.is_valid(raise_exception=True)

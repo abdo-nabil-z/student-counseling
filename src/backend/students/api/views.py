@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from consultation_backend.api_serializers import APIErrorResponseSerializer
 from students.models import Student
 from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer, StudentUpdateSerializer
+from students.services.semester_cleanup import delete_semester_data
 from documents.api.serializers import DocumentInfoSerializer
 from documents.services import attach_document
 from appointments.models import Appointment
@@ -210,27 +211,9 @@ def cleanup_semester_data(request):
             }
         )
     
-    appointments = Appointment.objects.all()
-    students = Student.objects.all()
-    slots = Slot.objects.all()
-
-    deleted_appointments = appointments.count()
-    deleted_students = students.count()
-    deleted_slots = slots.count()
-
-    for appointment in appointments:
-        appointment.delete()
-    
-    for student in students:
-        student.delete()
-
-    slots.delete()
+    result = delete_semester_data()
 
     return Response(
-        {
-            "deleted_appointments": deleted_appointments,
-            "deleted_students": deleted_students,
-            "deleted_slots": deleted_slots,
-        },
-        status=status.HTTP_200_OK
+        result,
+        status=status.HTTP_200_OK,
     )
