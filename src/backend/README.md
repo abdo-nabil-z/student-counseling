@@ -173,7 +173,7 @@ If a database document record exists but its physical file is missing, the downl
 
 ```http
 404 Not Found
-```
+
 
 ## Templates
 
