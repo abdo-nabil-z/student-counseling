@@ -158,12 +158,21 @@ When reporting a `500` error, provide:
 * The HTTP method
 * The approximate time of the request
 
-### Current transition note
+### File uploads
 
-Some existing endpoints still return endpoint-specific error structures because they manually construct their error responses. These endpoints will be migrated to the standard structure as part of the endpoint error-standardization work.
+The backend accepts uploaded files of any file type.
 
-Multipart file-upload endpoints still use their previous field-error format. They will be migrated to the standard error structure during the document and file-handling batch.
+There is currently no application-level file-size limit. The hosting environment, reverse proxy, Docker configuration, available disk space, or web server may still impose external request or storage limits.
 
+Student study plans and appointment minutes support an optional display name. If no display name is provided, the original uploaded filename is used.
+
+Replacing an attached document is transaction-safe at the database level. If the replacement cannot be completed, the previous document remains attached and the unsuccessful new upload is cleaned from storage.
+
+If a database document record exists but its physical file is missing, the download endpoint returns:
+
+```http
+404 Not Found
+```
 
 ## Templates
 

@@ -26,3 +26,18 @@ class TemplateContextNotImplemented(ApplicationAPIException):
     status_code = 501
     default_detail = "Template context generation is not implemented."
     default_code = "template_context_not_implemented"
+
+
+class StoredFileNotFound(ApplicationAPIException):
+    status_code = 404
+    default_detail = "The requested file is not available."
+    default_code = "stored_file_not_found"
+
+
+class FileStorageUnavailable(ApplicationAPIException):
+    status_code = 503
+    default_detail = (
+        "The file storage service is currently unavailable."
+    )
+    default_code = "file_storage_unavailable"
+    

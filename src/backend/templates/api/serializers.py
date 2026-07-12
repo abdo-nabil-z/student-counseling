@@ -29,7 +29,7 @@ class CounselorRenderSerializer(serializers.Serializer):
 class StudentRenderSerializer(serializers.Serializer):
     student_id = serializers.IntegerField(help_text="Student ID")
 
-    def validation_student_id(self, value):
+    def validate_student_id(self, value):
         if not Student.objects.filter(pk=value).exists():
             raise serializers.ValidationError(
                 "A student with this ID does not exist."
