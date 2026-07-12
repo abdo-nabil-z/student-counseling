@@ -24,11 +24,9 @@ def delete_semester_data() -> dict[str, int]:
         "deleted_slots": slots.count(),
     }
 
-    for appointment in appointments:
-        appointment.delete()
+    appointments.delete()
 
-    for student in students:
-        student.delete()
+    students.delete()
 
     slots.delete()
 
