@@ -7,9 +7,15 @@ class RequestIdFilter(logging.Filter):
     """
     Add the current request ID to every log record.
 
-    Log records created outside a request receive "-" as their request ID.
+    Django request logs may be emitted after the request context has
+    already been reset. In that case, use the request object attached
+    to the log record.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        record.request_id = get_request_id()
+        request = getattr(record, "request", None)
+        request_id = getattr(request, "request_id", None)
+
+        record.request_id = (request_id or get_request_id())
+
         return True

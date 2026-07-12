@@ -4,6 +4,23 @@ from rest_framework import serializers
 from documents.models import Document, MasterDocument, MasterDocumentVersion
 
 
+class DocumentUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()
+
+    name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        help_text="Display name. Defaults to the uploaded filename.",
+    )
+
+
+class MasterDocumentVersionUploadSerializer(
+    serializers.Serializer
+):
+    file = serializers.FileField()
+
+
 class DocumentInfoSerializer(serializers.ModelSerializer):
     """Minimal read-only representation embedded in entity serializers."""
     download_url = serializers.SerializerMethodField()
