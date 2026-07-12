@@ -119,7 +119,7 @@ def custom_exception_handler(exception: Exception, context: dict[str, Any]) -> R
             status=500,
         )
 
-    if response.status_code >= 500:
+    if response.status_code >= 500 and not isinstance(exception, ApplicationAPIException):
         logger.exception(
             "API exception returned a server error",
             extra=request_information,

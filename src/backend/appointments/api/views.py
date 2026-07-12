@@ -2,16 +2,16 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-
 from django.shortcuts import get_object_or_404
+
 
 from consultation_backend.api_serializers import APIErrorResponseSerializer
 from appointments.models import Appointment
 from appointments.api.serializers import AppointmentSerializer, AppointmentDetailSerializer, AppointmentUpdateSerializer, AppointmentFilterSerializer
-from documents.api.serializers import DocumentInfoSerializer
-from documents.services import attach_document
+from documents.api.serializers import DocumentInfoSerializer, DocumentUploadSerializer
+from documents.services import replace_attached_document
 
 
 @extend_schema(
@@ -78,7 +78,7 @@ def list_appointments(request):
 @extend_schema(
     request=AppointmentUpdateSerializer,
     responses={
-        200: AppointmentUpdateSerializer,
+        200: AppointmentDetailSerializer,
         400: APIErrorResponseSerializer,
         404: APIErrorResponseSerializer,
     },
@@ -118,22 +118,36 @@ def detail_update_appointment(request, appointment_id):
     },
     responses={
         201: DocumentInfoSerializer,
-        400: OpenApiResponse(description="Validation errors"),
-        404: OpenApiResponse(description="Appointment not found")
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer
     },
-    description="Upload the minutes PDF for an appointment. Replaces any existing one.",
+    description="Upload the minutes file for an appointment. Replaces any existing one.",
     tags=["Appointments"],
 )
 @api_view(["POST"])
 @parser_classes([MultiPartParser])
 def upload_appointment_minutes(request, appointment_id):
     appointment = get_object_or_404(Appointment, id=appointment_id)
-    file = request.FILES.get("file")
-    if not file:
-        return Response({"file": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
-    if appointment.minutes:
-        appointment.minutes.delete()
-    doc = attach_document(file, request.data.get("name") or file.name)
-    appointment.minutes = doc
-    appointment.save(update_fields=["minutes"])
-    return Response(DocumentInfoSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
+    
+    serializer = DocumentUploadSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    file = serializer.validated_data["file"]
+
+    name = (serializer.validated_data.get("name") or file.name)
+
+    document = replace_attached_document(
+        instance=appointment,
+        field_name="minutes",
+        file=file,
+        name=name,
+    )
+    
+    response_serializer = DocumentInfoSerializer(
+        document,
+        context={
+            "request": request,
+        },
+    )
+
+    return Response(response_serializer.data, status=status.HTTP_201_CREATED)
