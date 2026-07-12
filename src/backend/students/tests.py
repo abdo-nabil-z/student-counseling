@@ -86,12 +86,19 @@ class SemesterCleanupServiceTests(TestCase):
 
 
     def test_cleanup_rolls_back_all_database_changes_on_failure(self):
+        students_queryset = Student.objects.all()
+        
         with patch(
-            "students.services.semester_cleanup.Student.delete",
-            side_effect=RuntimeError("Simulated cleanup failure"),
+            "students.services.semester_cleanup.Student.objects.all",
+            return_value=students_queryset,
         ):
-            with self.assertRaises(RuntimeError):
-                delete_semester_data()
+            with patch.object(
+                students_queryset,
+                "delete",
+                side_effect=RuntimeError("Simulated cleanup failure")
+            ):
+                with self.assertRaises(RuntimeError):
+                    delete_semester_data()
         
         self.assertTrue(
             Appointment.objects.filter(pk=self.appointment.pk).exists()
