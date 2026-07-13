@@ -1,7 +1,6 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from django.shortcuts import get_object_or_404
 
 from templates.models import Template, Purpose
 from templates.api.serializers import TemplateSerializer
@@ -23,7 +22,8 @@ from templates.api.render_views import (  # noqa: F401 — re-exported for urls.
 @schemas.list_templates
 @api_view(["GET"])
 def list_templates(request):
-    templates = Template.objects.all()
+    existing = {t.purpose: t for t in Template.objects.all()}
+    templates = [existing.get(p) or Template(purpose=p, content="") for p in Purpose.values]
     serializer = TemplateSerializer(templates, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -33,7 +33,7 @@ def list_templates(request):
 def get_template(request, purpose):
     if purpose not in Purpose.values:
         return Response({"error": f"Unknown purpose '{purpose}'"}, status=status.HTTP_404_NOT_FOUND)
-    template = get_object_or_404(Template, purpose=purpose)
+    template = Template.objects.filter(purpose=purpose).first() or Template(purpose=purpose, content="")
     return Response(TemplateSerializer(template).data, status=status.HTTP_200_OK)
 
 
