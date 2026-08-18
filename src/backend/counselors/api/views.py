@@ -12,6 +12,7 @@ from drf_spectacular.utils import (
 )
 from drf_spectacular.types import OpenApiTypes
 
+from consultation_backend.api_serializers import APIErrorResponseSerializer
 from counselors.models import Counselor, Slot
 from counselors.api.serializers import (
     CounselorCreateSerializer,
@@ -34,7 +35,7 @@ from counselors.services.slot_status import build_counselor_slot_status, build_a
         request=CounselorCreateSerializer,
         responses={
             201: CounselorDetailSerializer,
-            400: OpenApiResponse(description="Validation errors"),
+            400: APIErrorResponseSerializer,
         },
         description="Create a new counselor",
         tags=["Counselors"],
@@ -49,12 +50,12 @@ def create_list_counselors(request):
 
     serializer = CounselorCreateSerializer(data=request.data)
 
-    if serializer.is_valid():
-        counselor = serializer.save()
-        response_serializer = CounselorDetailSerializer(counselor)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+    serializer.is_valid(raise_exception=True)
+    counselor = serializer.save()
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    response_serializer = CounselorDetailSerializer(counselor)
+
+    return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema_view(
@@ -67,7 +68,7 @@ def create_list_counselors(request):
         request=CounselorUpdateSerializer,
         responses={
             200: CounselorDetailSerializer,
-            400: OpenApiResponse(description="Validation errors"),
+            400: APIErrorResponseSerializer,
         },
         description="Update a counselor",
         tags=["Counselors"],
@@ -93,15 +94,16 @@ def detail_counselor(request, counselor_id):
             partial=True,
         )
 
-        if serializer.is_valid():
-            counselor = serializer.save()
-            response_serializer = CounselorDetailSerializer(counselor)
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
+        serializer.is_valid(raise_exception=True)
+        counselor = serializer.save()
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        response_serializer = CounselorDetailSerializer(counselor)
 
-    counselor.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    if request.method == "DELETE":
+        counselor.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema(
@@ -115,7 +117,8 @@ def detail_counselor(request, counselor_id):
     request=SlotCreateSerializer,
     responses={
         201: SlotDetailSerializer,
-        400: OpenApiResponse(description="Validation errors"),
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer,
     },
     description="Create slot for one counselor",
     tags=["Counselors"],
@@ -132,14 +135,17 @@ def create_list_counselor_slots(request, counselor_id):
         serializer = SlotDetailSerializer(slots, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    serializer = SlotCreateSerializer(data=request.data, context={"counselor": counselor})
+    if request.method == "POST":
+        
+        serializer = SlotCreateSerializer(data=request.data, context={"counselor": counselor})
 
-    if serializer.is_valid():
+        serializer.is_valid(raise_exception=True)
         slot = serializer.save(counselor=counselor)
+
         response_serializer = SlotDetailSerializer(slot)
+
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(

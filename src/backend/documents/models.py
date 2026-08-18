@@ -7,11 +7,6 @@ class Document(models.Model):
     name = models.CharField(max_length=255)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
-    def delete(self, *args, **kwargs):
-        if self.file:
-            self.file.delete(save=False)
-        
-        super().delete(*args, **kwargs)
 
     def __str__(self):
         return self.name

@@ -6,12 +6,12 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResp
 
 from django.shortcuts import get_object_or_404
 
+from consultation_backend.api_serializers import APIErrorResponseSerializer
 from students.models import Student
 from students.api.serializers import StudentCreateSerializer, StudentDetailSerializer, StudentUpdateSerializer
-from documents.api.serializers import DocumentInfoSerializer
-from documents.services import attach_document
-from appointments.models import Appointment
-from counselors.models import Slot
+from students.services.semester_cleanup import delete_semester_data
+from documents.api.serializers import DocumentInfoSerializer, DocumentUploadSerializer
+from documents.services import replace_attached_document
 
 
 
@@ -25,7 +25,7 @@ from counselors.models import Slot
             request=StudentCreateSerializer,
             responses={
                 201: StudentDetailSerializer,
-                400: OpenApiResponse(description="Validation errors"),
+                400: APIErrorResponseSerializer,
             },
             description="Create a new Student. Returns the created object on success.",
             examples=[OpenApiExample("Valid request",
@@ -46,13 +46,11 @@ def create_list_students(request):
     if request.method == "POST":
         serializer = StudentCreateSerializer(data=request.data)
 
-        if serializer.is_valid():
-            student = serializer.save()
+        serializer.is_valid(raise_exception=True)
+        student = serializer.save()
 
-            response_serializer = StudentDetailSerializer(student)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        response_serializer = StudentDetailSerializer(student)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 
@@ -66,7 +64,7 @@ def create_list_students(request):
         request=StudentUpdateSerializer,
         responses={
             200: StudentDetailSerializer,
-            400: OpenApiResponse(description="Validation errors")
+            400: APIErrorResponseSerializer,
         },
         description="Update a student",
         tags=["Students"]
@@ -88,27 +86,23 @@ def detail_student(request, student_id):
     if request.method == "PATCH":
         serializer = StudentUpdateSerializer(student, data=request.data, partial=True)
         
-        if serializer.is_valid():
-            student = serializer.save()
-            response_serializer = StudentDetailSerializer(student)    
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        student = serializer.save()
+
+        response_serializer = StudentDetailSerializer(student)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     if request.method == "DELETE":
         student.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-_study_plan_upload_request = {"multipart/form-data": inline_serializer("StudyPlanUpload", fields={
-    "file": drf_serializers.FileField(),
-    "name": drf_serializers.CharField(required=False, help_text="Display name; defaults to filename"),
-})}
 
 
 
 @extend_schema(
-    request=_study_plan_upload_request,
+    request=DocumentUploadSerializer,
     responses={
         201: DocumentInfoSerializer,
         400: OpenApiResponse(description="Validation errors"),
@@ -121,15 +115,30 @@ _study_plan_upload_request = {"multipart/form-data": inline_serializer("StudyPla
 @parser_classes([MultiPartParser])
 def upload_initial_study_plan(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    file = request.FILES.get("file")
-    if not file:
-        return Response({"file": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
-    if student.initial_study_plan:
-        student.initial_study_plan.delete()
-    doc = attach_document(file, request.data.get("name") or file.name)
-    student.initial_study_plan = doc
-    student.save(update_fields=["initial_study_plan"])
-    return Response(DocumentInfoSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
+    
+    serializer = DocumentUploadSerializer(data = request.data)
+    
+    serializer.is_valid(raise_exception=True)
+
+    file = serializer.validated_data["file"]
+
+    name = (serializer.validated_data.get("name") or file.name)
+
+    document = replace_attached_document(
+        instance=student,
+        field_name="initial_study_plan",
+        file=file,
+        name=name,
+    )
+
+    response_serializer = DocumentInfoSerializer(
+        document,
+        context={
+            "request": request,
+        }
+    )
+
+    return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 
@@ -149,11 +158,11 @@ def get_student_appointment(request, student_id):
 
 
 @extend_schema(
-    request=_study_plan_upload_request,
+    request=DocumentUploadSerializer,
     responses={
         201: DocumentInfoSerializer,
-        400: OpenApiResponse(description="Validation errors"),
-        404: OpenApiResponse(description="Student not found")
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer
     },
     description="Upload the final study plan PDF for a student. Replaces any existing one.",
     tags=["Students"],
@@ -162,15 +171,27 @@ def get_student_appointment(request, student_id):
 @parser_classes([MultiPartParser])
 def upload_final_study_plan(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    file = request.FILES.get("file")
-    if not file:
-        return Response({"file": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
-    if student.final_study_plan:
-        student.final_study_plan.delete()
-    doc = attach_document(file, request.data.get("name") or file.name)
-    student.final_study_plan = doc
-    student.save(update_fields=["final_study_plan"])
-    return Response(DocumentInfoSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
+    serializer = DocumentUploadSerializer(data=request.data)
+
+    serializer.is_valid(raise_exception=True)
+
+    file = serializer.validated_data["file"]
+
+    name = (serializer.validated_data.get("name") or file.name)
+    
+    document = replace_attached_document(instance=student, field_name="final_study_plan", file=file, name=name)
+    
+    response_serializer = DocumentInfoSerializer(
+        document,
+        context={
+            "request": request,
+        },
+    )
+
+    return Response(
+        response_serializer.data,
+        status=status.HTTP_201_CREATED
+    )
 
 
 @extend_schema(
@@ -189,7 +210,7 @@ def upload_final_study_plan(request, student_id):
                     "deleted_slots": drf_serializers.IntegerField(),
                 },
             ),
-            400: OpenApiResponse(description="Invalid confirmation value"),
+            400: APIErrorResponseSerializer,
         },
         description="Delete all semester data: appointments, students, their documents, and counselor slots.",
         tags=["Students"],
@@ -199,34 +220,21 @@ def cleanup_semester_data(request):
     confirm = request.data.get("confirm")
 
     if confirm != "DELETE_SEMESTER_DATA":
-        return Response(
+        raise drf_serializers.ValidationError(
             {
-                "confirm": "You must send confirm='DELETE_SEMESTER_DATA' to run semester cleanup."
-            },
-            status = status.HTTP_400_BAD_REQUEST,
+                "confirm": [
+                    (
+                        "You must send "
+                        "confirm='DELETE_SEMESTER_DATA' "
+                        "to run semester cleanup."
+                    )
+                ]
+            }
         )
     
-    appointments = Appointment.objects.all()
-    students = Student.objects.all()
-    slots = Slot.objects.all()
-
-    deleted_appointments = appointments.count()
-    deleted_students = students.count()
-    deleted_slots = slots.count()
-
-    for appointment in appointments:
-        appointment.delete()
-    
-    for student in students:
-        student.delete()
-
-    slots.delete()
+    result = delete_semester_data()
 
     return Response(
-        {
-            "deleted_appointments": deleted_appointments,
-            "deleted_students": deleted_students,
-            "deleted_slots": deleted_slots,
-        },
-        status=status.HTTP_200_OK
+        result,
+        status=status.HTTP_200_OK,
     )

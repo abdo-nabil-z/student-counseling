@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 
+from consultation_backend.api_serializers import APIErrorResponseSerializer
 from templates.api.serializers import (
     TemplateSerializer,
     CounselorRenderSerializer,
@@ -10,34 +11,10 @@ from templates.api.serializers import (
 
 # ── Shared response fragments ────────────────────────────────────────────────
 
-_render_error_detail = inline_serializer(
-    name="TemplateRenderErrorDetail",
-    fields={
-        "type": serializers.ChoiceField(choices=["syntax_error", "undefined_variable"]),
-        "message": serializers.CharField(),
-        "line": serializers.IntegerField(required=False, help_text="Line number (syntax errors only)"),
-        "variable": serializers.CharField(required=False, help_text="Variable name (undefined variable errors only)"),
-    },
-)
 
 _render_success = inline_serializer(
     name="RenderSuccess",
     fields={"rendered": serializers.CharField()},
-)
-
-_render_400 = inline_serializer(
-    name="RenderError400",
-    fields={"error": serializers.CharField()},
-)
-
-_render_422 = inline_serializer(
-    name="RenderError422",
-    fields={"error": _render_error_detail},
-)
-
-_not_found = inline_serializer(
-    name="NotFound",
-    fields={"error": serializers.CharField()},
 )
 
 
@@ -46,9 +23,10 @@ def _render_schema(request_serializer_class, description):
         request=request_serializer_class,
         responses={
             200: _render_success,
-            400: _render_400,
-            404: _not_found,
-            422: _render_422,
+            400: APIErrorResponseSerializer,
+            404: APIErrorResponseSerializer,
+            422: APIErrorResponseSerializer,
+            501: APIErrorResponseSerializer,
         },
         description=description,
     )
@@ -66,7 +44,7 @@ get_template = extend_schema(
     request=None,
     responses={
         200: TemplateSerializer,
-        404: _not_found,
+        404: APIErrorResponseSerializer,
     },
     description="Get the template for a specific purpose.",
 )
@@ -75,8 +53,8 @@ update_template = extend_schema(
     request=TemplateSerializer,
     responses={
         200: TemplateSerializer,
-        400: inline_serializer(name="UpdateTemplateError400", fields={"error": serializers.CharField()}),
-        404: _not_found,
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer,
     },
     description="Update the content of the template for a specific purpose.",
 )
@@ -96,7 +74,7 @@ purpose_context_schema = extend_schema(
             },
             many=True,
         ),
-        404: _not_found,
+        404: APIErrorResponseSerializer,
     },
     description=(
         "Return a flat list of available template variables for a purpose. "

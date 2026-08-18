@@ -31,12 +31,6 @@ class Appointment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def delete(self, *args, **kwargs):
-        docs = [self.minutes]
-        super().delete(*args, **kwargs)
-        for doc in docs:
-            if doc:
-                doc.delete()
 
     def __str__(self):
         return f"{self.student} with {self.counselor} on {self.slot}"

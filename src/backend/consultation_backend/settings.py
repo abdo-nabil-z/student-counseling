@@ -15,6 +15,8 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -51,6 +53,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'consultation_backend.middleware.RequestIdMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -111,7 +115,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': (
+        'consultation_backend.exceptions.custom_exception_handler'
+    ),
 }
 
 SPECTACULAR_SETTINGS = {
@@ -139,3 +146,80 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    'filters': {
+        'request_id': {
+            '()': 'consultation_backend.logging_filters.RequestIdFilter',
+        },
+    },
+
+    'formatters': {
+        'verbose': {
+            'format': (
+                '{asctime} {levelname} '
+                '[request_id={request_id}] '
+                '{name}: {message}'
+            ),
+            'style': '{',
+        },
+        'simple': {
+            'format': (
+                '{levelname} '
+                '[request_id={request_id}] '
+                '{name}: {message}'
+            ),
+            'style': '{',
+        },
+    },
+
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'INFO',
+            'formatter': 'simple',
+            'filters': ['request_id'],
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'INFO',
+            'formatter': 'verbose',
+            'filters': ['request_id'],
+            'filename': LOG_DIR / 'application.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+            'encoding': 'utf-8',
+        },
+    },
+
+    'root': {
+        'handlers': [
+            'console',
+            'file',
+        ],
+        'level': 'INFO',
+    },
+
+    'loggers': {
+        'django': {
+            'handlers': [
+                'console',
+                'file',
+            ],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': [
+                'console',
+                'file',
+            ],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

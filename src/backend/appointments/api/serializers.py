@@ -47,4 +47,9 @@ class AppointmentUpdateSerializer(serializers.ModelSerializer):
             "location": {"required": False, "allow_null": True, "allow_blank": True},
             "status": {"required": False},
         }
-        
+
+
+class AppointmentFilterSerializer(serializers.Serializer):
+    
+    student = serializers.IntegerField(required=False, min_value=1, help_text="Filter by student ID.")
+    counselor = serializers.IntegerField(required=False, min_value=1, help_text="Filter by counselor ID.")
