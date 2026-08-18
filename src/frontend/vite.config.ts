@@ -9,7 +9,7 @@ export default defineConfig({
     host: true, // binds to 0.0.0.0 instead of localhost
     port: 5173,
     proxy: {
-      "/api": "http://backend:8000",
+      "/api": "http://localhost:8000",
     },
   },
 });
