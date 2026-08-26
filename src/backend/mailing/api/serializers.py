@@ -85,6 +85,41 @@ class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
             "created_at"
         ]
 
+
+class EmailDeliveryUpdateSerializer(serializers.Serializer):
+    subject = serializers.CharField(required=False, allow_blank=False, max_length=255)
+
+    body = serializers.CharField(required=False, allow_blank=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("At least one editable field must be provided.")
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        updated_fields = []
+
+        if "subject" in validated_data:
+            instance.subject = (
+                validated_data["subject"]
+            )
+            updated_fields.append("subject")
+
+        if "body" in validated_data:
+            instance.body = (
+                validated_data["body"]
+            )
+            updated_fields.append("body")
+
+        updated_fields.append("updated_at")
+
+        instance.save(
+            update_fields=updated_fields
+        )
+
+        return instance
+
 class EmailBatchDetailSerializer(serializers.ModelSerializer):
     deliveries = EmailDeliveryPreviewSerializer(many=True, read_only=True)
 
