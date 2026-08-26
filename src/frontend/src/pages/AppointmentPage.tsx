@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/client";
 import type { Counselor } from "../types/counselor";
 import type { Student } from "../types/student";
@@ -14,6 +14,14 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "#6b7280",
   missed: "#dc2626",
 };
+
+interface AppointmentPrefill {
+  counselorId: number;
+  slotId: number;
+  startTime: string;
+  endTime: string;
+  location: string;
+}
 
 function addMinutes(hhmm: string, mins: number): string {
   const [h, m] = hhmm.split(":").map(Number);
@@ -49,17 +57,29 @@ function TrashIcon() {
 
 function AppointmentPage() {
   const navigate = useNavigate();
+  const routeLocation = useLocation();
+
+  const prefill = (routeLocation.state as AppointmentPrefill | null) ?? null;
+
   const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  const [counselorId, setCounselorId] = useState("");
+  const [counselorId, setCounselorId] = useState(
+    prefill ? String(prefill.counselorId) : "",
+  );
+
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [slotId, setSlotId] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+
+  const [slotId, setSlotId] = useState(prefill ? String(prefill.slotId) : "");
+
+  const [startTime, setStartTime] = useState(prefill?.startTime ?? "");
+
+  const [endTime, setEndTime] = useState(prefill?.endTime ?? "");
+
   const [studentId, setStudentId] = useState("");
-  const [location, setLocation] = useState("");
+
+  const [location, setLocation] = useState(prefill?.location ?? "");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -270,95 +290,6 @@ function AppointmentPage() {
 
       {!loading && !error && (
         <>
-          <div className="card" style={{ marginBottom: "1.5rem" }}>
-            <h3>Book a new appointment</h3>
-            <label>Counselor</label>
-            <select
-              value={counselorId}
-              onChange={(e) => onCounselorChange(e.target.value)}
-            >
-              <option value="">— select —</option>
-              {counselors.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title} {c.first_name} {c.last_name}
-                </option>
-              ))}
-            </select>
-
-            <label>Availability slot</label>
-            <select
-              value={slotId}
-              onChange={(e) => onSlotChange(e.target.value)}
-              disabled={!counselorId}
-            >
-              <option value="">— select —</option>
-              {slots.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.date} · {s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}
-                </option>
-              ))}
-            </select>
-
-            {slotId && bookedInSlot.length > 0 && (
-              <p style={{ fontSize: 13, color: "#666" }}>
-                Already booked in this slot: {bookedInSlot.join(", ")}
-              </p>
-            )}
-
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <div style={{ flex: 1 }}>
-                <label>Start time</label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  disabled={!slotId}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label>End time</label>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  disabled={!slotId}
-                />
-              </div>
-            </div>
-            {startTime && endTime && minutesBetween(startTime, endTime) > 0 && (
-              <p style={{ fontSize: 13, color: "#666" }}>
-                Duration: {minutesBetween(startTime, endTime)} min
-              </p>
-            )}
-
-            <label>Student</label>
-            <select
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-            >
-              <option value="">— select —</option>
-              {availableStudents.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.first_name} {s.last_name} ({s.matriculation_number})
-                </option>
-              ))}
-            </select>
-
-            <label>Place / location</label>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. AE22-R273 or Zoom link"
-            />
-
-            {formError && <p style={{ color: "red" }}>{formError}</p>}
-            <div style={{ marginTop: "1rem" }}>
-              <button onClick={createAppointment} disabled={saving}>
-                {saving ? "Creating…" : "Create appointment"}
-              </button>
-            </div>
-          </div>
-
           <div className="page-header">
             <h3>All appointments</h3>
             <span>{appointments.length} total</span>
@@ -457,6 +388,98 @@ function AppointmentPage() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div
+            className="card"
+            style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}
+          >
+            <h3>Book a new appointment</h3>
+            <label>Counselor</label>
+            <select
+              value={counselorId}
+              onChange={(e) => onCounselorChange(e.target.value)}
+            >
+              <option value="">— select —</option>
+              {counselors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title} {c.first_name} {c.last_name}
+                </option>
+              ))}
+            </select>
+
+            <label>Availability slot</label>
+            <select
+              value={slotId}
+              onChange={(e) => onSlotChange(e.target.value)}
+              disabled={!counselorId}
+            >
+              <option value="">— select —</option>
+              {slots.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.date} · {s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}
+                </option>
+              ))}
+            </select>
+
+            {slotId && bookedInSlot.length > 0 && (
+              <p style={{ fontSize: 13, color: "#666" }}>
+                Already booked in this slot: {bookedInSlot.join(", ")}
+              </p>
+            )}
+
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <div style={{ flex: 1 }}>
+                <label>Start time</label>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  disabled={!slotId}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label>End time</label>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  disabled={!slotId}
+                />
+              </div>
+            </div>
+            {startTime && endTime && minutesBetween(startTime, endTime) > 0 && (
+              <p style={{ fontSize: 13, color: "#666" }}>
+                Duration: {minutesBetween(startTime, endTime)} min
+              </p>
+            )}
+
+            <label>Student</label>
+            <select
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+            >
+              <option value="">— select —</option>
+              {availableStudents.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.first_name} {s.last_name} ({s.matriculation_number})
+                </option>
+              ))}
+            </select>
+
+            <label>Place / location</label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. AE22-R273 or Zoom link"
+            />
+
+            {formError && <p style={{ color: "red" }}>{formError}</p>}
+            <div style={{ marginTop: "1rem" }}>
+              <button onClick={createAppointment} disabled={saving}>
+                {saving ? "Creating…" : "Create appointment"}
+              </button>
+            </div>
           </div>
         </>
       )}
