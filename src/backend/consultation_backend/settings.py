@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'appointments',
     'documents.apps.DocumentsConfig',
     'templates.apps.TemplatesConfig',
+    'mailing',
 ]
 
 MIDDLEWARE = [

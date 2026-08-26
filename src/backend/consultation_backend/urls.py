@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/appointments/', include('appointments.api.urls', namespace='appointments_api')),
     path('api/documents/', include('documents.api.urls', namespace='documents_api')),
     path('api/templates/', include('templates.api.urls', namespace='templates_api')),
+    path('api/mailing/', include('mailing.api.urls', namespace='mailing_api')),
 
 
     # documentation urls
