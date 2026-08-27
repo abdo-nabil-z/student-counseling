@@ -198,6 +198,35 @@ EMAIL_TIMEOUT = int(
 )
 
 
+EMAIL_MAX_SEND_ATTEMPTS = int(
+    os.environ.get(
+        "EMAIL_MAX_SEND_ATTEMPTS",
+        "2",
+    )
+)
+
+EMAIL_RETRY_DELAY_SECONDS = int(
+    os.environ.get(
+        "EMAIL_RETRY_DELAY_SECONDS",
+        "60",
+    )
+)
+
+EMAIL_SEND_INTERVAL_SECONDS = float(
+    os.environ.get(
+        "EMAIL_SEND_INTERVAL_SECONDS",
+        "4",
+    )
+)
+
+EMAIL_QUEUE_POLL_INTERVAL_SECONDS = float(
+    os.environ.get(
+        "EMAIL_QUEUE_POLL_INTERVAL_SECONDS",
+        "5",
+    )
+)
+
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

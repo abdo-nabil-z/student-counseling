@@ -36,12 +36,14 @@ def _record_send_failure(delivery: EmailDelivery, error: Exception)->None:
 def _record_send_success(delivery: EmailDelivery)->None:
     delivery.status = EmailDelivery.Status.SENT
     delivery.last_error = ""
+    delivery.next_attempt_at = None
     delivery.sent_at = timezone.now()
 
     delivery.save(
         update_fields=[
             "status",
             "last_error",
+            "next_attempt_at",
             "sent_at",
             "updated_at",
         ]
