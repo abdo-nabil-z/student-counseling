@@ -131,3 +131,42 @@ class EmailBatchDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "deliveries"
         ]
+
+
+class EmailDeliveryStatusSerializer(serializers.ModelSerializer):
+    student_id = serializers.IntegerField(read_only=True)
+
+    student_name = serializers.CharField(
+        source="student.full_name",
+        read_only=True
+    )
+
+    class Meta:
+        model = EmailDelivery
+        fields = [
+            "id",
+            "student_id",
+            "student_name",
+            "recipient_email",
+            "status",
+            "attempt_count",
+            "last_error",
+            "next_attempt_at",
+            "sent_at",
+            "updated_at",
+        ]
+
+
+class EmailBatchStatusSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    purpose = serializers.CharField()
+
+    total_count = serializers.IntegerField()
+    draft_count = serializers.IntegerField()
+    queued_count = serializers.IntegerField()
+    sent_count = serializers.IntegerField()
+    failed_count = serializers.IntegerField()
+
+    deliveries = EmailDeliveryStatusSerializer(
+        many=True
+    )

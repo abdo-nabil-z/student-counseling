@@ -11,4 +11,13 @@ class EmailBatchNotSendable(ApplicationAPIException):
     status_code = 409
     default_detail= ("This email batch cannot be queued for sending.")
     default_code = "email_batch_not_sendable"
-    
+
+
+class EmailDeliveryNotResendable(
+    ApplicationAPIException
+):
+    status_code = 409
+    default_detail = (
+        "This email delivery cannot be resent."
+    )
+    default_code = "email_delivery_not_resendable"

@@ -5,11 +5,19 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from consultation_backend.api_serializers import APIErrorResponseSerializer
-from mailing.api.serializers import EmailBatchCreateSerializer, EmailBatchDetailSerializer, EmailDeliveryPreviewSerializer, EmailDeliveryUpdateSerializer
+from mailing.api.serializers import (
+    EmailBatchCreateSerializer,
+    EmailBatchDetailSerializer,
+    EmailDeliveryPreviewSerializer,
+    EmailDeliveryUpdateSerializer,
+    EmailBatchStatusSerializer,
+)
 from mailing.api_exceptions import EmailDeliveryNotEditable
 from mailing.models import EmailBatch, EmailDelivery
 from mailing.services.generation import generate_email_batch
 from mailing.services.queueing import queue_email_batch
+from mailing.services.resending import requeue_failed_delivery
+from mailing.services.status import build_email_batch_status
 
 
 
@@ -98,7 +106,12 @@ def email_delivery_detail(request, delivery_id):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    if delivery.status != EmailDelivery.Status.DRAFT:
+    editable_statuses = {
+        EmailDelivery.Status.DRAFT,
+        EmailDelivery.Status.FAILED,
+    }
+
+    if delivery.status not in editable_statuses:
         raise EmailDeliveryNotEditable(
             details={
                 "delivery_id": delivery.pk,
@@ -140,5 +153,53 @@ def send_email_batch(request, batch_id):
     batch = EmailBatch.objects.prefetch_related("deliveries__student").get(pk=batch.pk)
 
     serializer = EmailBatchDetailSerializer(batch)
+
+    return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
+
+@extend_schema(
+    responses={
+        200: EmailBatchStatusSerializer,
+        404: APIErrorResponseSerializer,
+    },
+    description=(
+        "Get the current sending status of an "
+        "email batch for frontend polling."
+    ),
+    tags=["Mailing"],
+)
+@api_view(["GET"])
+def get_email_batch_status(request, batch_id):
+    batch = get_object_or_404(EmailBatch, pk=batch_id)
+
+    batch_status = build_email_batch_status(batch)
+
+    serializer = EmailBatchStatusSerializer(batch_status)
+
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    request=None,
+    responses={
+        202: EmailDeliveryPreviewSerializer,
+        404: APIErrorResponseSerializer,
+        409: APIErrorResponseSerializer,
+    },
+    description=(
+        "Queue a failed email delivery for "
+        "another sending cycle."
+    ),
+    tags=["Mailing"],
+)
+@api_view(["POST"])
+def resend_email_delivery(request, delivery_id):
+    delivery = get_object_or_404(
+        EmailDelivery.objects.select_related("student", "batch"), pk= delivery_id
+    )
+
+    delivery = requeue_failed_delivery(delivery)
+
+    serializer = EmailDeliveryPreviewSerializer(delivery)
 
     return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
