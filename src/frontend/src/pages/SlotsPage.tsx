@@ -63,10 +63,66 @@ function SlotsPage() {
     }
   }
 
+  const selectedCounselor =
+    selectedId === ""
+      ? undefined
+      : counselors.find((counselor) => counselor.id === selectedId);
+
   return (
     <section>
       <h2>Time Slots & Availability</h2>
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
+
+      {selectedId !== "" && (
+        <div className="card">
+          <h3>Availability Slots</h3>
+          {slots.length === 0 && <p>No slots for this counselor yet.</p>}
+          {slots.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Counsellor</th>
+                  <th>Chair</th>
+                  <th>Office</th>
+                  <th>Email</th>
+                  <th>Date</th>
+                  <th>Start</th>
+                  <th>End</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slots.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      {selectedCounselor
+                        ? `${selectedCounselor.title} ${selectedCounselor.first_name} ${selectedCounselor.last_name}`
+                        : "—"}
+                    </td>
+
+                    <td>{selectedCounselor?.chair || "—"}</td>
+
+                    <td>{selectedCounselor?.office_address || "—"}</td>
+
+                    <td>
+                      {selectedCounselor?.email ? (
+                        <a href={`mailto:${selectedCounselor.email}`}>
+                          {selectedCounselor.email}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+
+                    <td>{s.date}</td>
+                    <td>{s.start_time.slice(0, 5)}</td>
+                    <td>{s.end_time.slice(0, 5)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <h3>Create Availability Slot</h3>
@@ -108,33 +164,6 @@ function SlotsPage() {
           </button>
         </div>
       </div>
-
-      {selectedId !== "" && (
-        <div className="card">
-          <h3>Availability Slots</h3>
-          {slots.length === 0 && <p>No slots for this counselor yet.</p>}
-          {slots.length > 0 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Start</th>
-                  <th>End</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slots.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.date}</td>
-                    <td>{s.start_time.slice(0, 5)}</td>
-                    <td>{s.end_time.slice(0, 5)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
     </section>
   );
 }
