@@ -26,7 +26,7 @@ from mailing.services.status import build_email_batch_status
     responses={
         201: EmailBatchDetailSerializer,
         400: APIErrorResponseSerializer,
-        404: APIErrorResponseSerializer,
+        409: APIErrorResponseSerializer,
         422: APIErrorResponseSerializer,
     },
     description=(

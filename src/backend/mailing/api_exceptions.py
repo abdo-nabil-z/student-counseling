@@ -21,3 +21,11 @@ class EmailDeliveryNotResendable(
         "This email delivery cannot be resent."
     )
     default_code = "email_delivery_not_resendable"
+
+
+class EmailTemplateNotConfigured(ApplicationAPIException):
+    status_code = 409
+    default_detail = (
+        "The required email template is not configured."
+    )
+    default_code = "email_template_not_configured"

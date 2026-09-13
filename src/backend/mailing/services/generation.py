@@ -1,10 +1,11 @@
 from django.db import transaction
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import ValidationError
 
 from appointments.models import Appointment
-from consultation_backend.api_exceptions import TemplateRenderFailed
+from consultation_backend.api_exceptions import TemplateRenderFailed, TemplateNotConfigured
 from mailing.models import EmailBatch, EmailDelivery
 from mailing.subjects import DEFAULT_EMAIL_SUBJECTS
+from mailing.api_exceptions import EmailTemplateNotConfigured
 from students.models import Student
 from templates.api.render_views import TemplateRenderError, render_from_template
 from templates.context_registry import AppointmentStudentCounselorContext, StudentAndBlocksContext
@@ -107,12 +108,10 @@ def generate_email_batch(*, purpose: str, student_ids: list[int],send_immediatel
     template = Template.objects.filter(purpose=purpose).first()
 
     if template is None:
-        raise NotFound(
-            detail=(
-                f"No template exists for "
-                f"purpose '{purpose}'."
-            ),
-            code="email_template_not_found"
+        raise EmailTemplateNotConfigured(
+            details={
+                "purpose": purpose,
+            }
         )
 
     students_by_id = Student.objects.in_bulk(student_ids)

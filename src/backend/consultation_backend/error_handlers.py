@@ -20,7 +20,7 @@ def api_not_found(request: HttpRequest, exception: Exception) -> HttpResponse:
     return JsonResponse(
         {
             "error": {
-                "code": "not_found",
+                "code": "endpoint_not_found",
                 "message": "The requested API endpoint was not found.",
                 "details": None,
                 "request_id": _get_request_id(request),
