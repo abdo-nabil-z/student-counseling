@@ -28,6 +28,12 @@ class TemplateContextNotImplemented(ApplicationAPIException):
     default_code = "template_context_not_implemented"
 
 
+class PdfGenerationFailed(ApplicationAPIException):
+    status_code = 422
+    default_detail = "The PDF could not be generated."
+    default_code = "pdf_generation_failed"
+
+
 class StoredFileNotFound(ApplicationAPIException):
     status_code = 404
     default_detail = "The requested file is not available."

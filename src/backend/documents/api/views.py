@@ -8,11 +8,7 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import status
-from rest_framework.decorators import (
-    api_view,
-    parser_classes,
-)
-from rest_framework.parsers import MultiPartParser
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from consultation_backend.api_exceptions import (
@@ -22,17 +18,7 @@ from consultation_backend.api_exceptions import (
 from consultation_backend.api_serializers import (
     APIErrorResponseSerializer,
 )
-from documents.api.serializers import (
-    MasterDocumentSerializer,
-    MasterDocumentVersionSerializer,
-    MasterDocumentVersionUploadSerializer,
-)
-from documents.models import (
-    Document,
-    MasterDocument,
-    MasterDocumentVersion,
-)
-from documents.services import add_master_version
+from documents.models import Document
 
 
 logger = logging.getLogger(__name__)
@@ -162,138 +148,4 @@ def download_document(
         file_handle,
         as_attachment=True,
         filename=document.name,
-    )
-
-
-# -------------------------------------------------------------------------
-# Master documents
-# -------------------------------------------------------------------------
-
-
-@extend_schema(
-    responses={
-        200: MasterDocumentSerializer(
-            many=True
-        )
-    },
-    description=(
-        "List all master documents, including "
-        "all versions and the latest version."
-    ),
-    tags=["Documents"],
-)
-@api_view(["GET"])
-def list_master_documents(request):
-    master_documents = (
-        MasterDocument.objects
-        .prefetch_related("versions")
-        .all()
-    )
-
-    serializer = MasterDocumentSerializer(
-        master_documents,
-        many=True,
-        context={
-            "request": request,
-        },
-    )
-
-    return Response(serializer.data)
-
-
-@extend_schema(
-    request=MasterDocumentVersionUploadSerializer,
-    responses={
-        201: MasterDocumentVersionSerializer,
-        400: APIErrorResponseSerializer,
-        404: APIErrorResponseSerializer,
-    },
-    description=(
-        "Upload a new version for a master document. "
-        "The new version becomes the latest."
-    ),
-    tags=["Documents"],
-)
-@api_view(["POST"])
-@parser_classes([MultiPartParser])
-def upload_master_version(
-    request,
-    pk,
-):
-    master_document = get_object_or_404(
-        MasterDocument,
-        pk=pk,
-    )
-
-    serializer = (
-        MasterDocumentVersionUploadSerializer(
-            data=request.data
-        )
-    )
-    serializer.is_valid(
-        raise_exception=True
-    )
-
-    version = add_master_version(
-        master=master_document,
-        file=serializer.validated_data["file"],
-    )
-
-    response_serializer = (
-        MasterDocumentVersionSerializer(
-            version,
-            context={
-                "request": request,
-            },
-        )
-    )
-
-    return Response(
-        response_serializer.data,
-        status=status.HTTP_201_CREATED,
-    )
-
-
-@extend_schema(
-    responses={
-        (
-            200,
-            "application/octet-stream",
-        ): OpenApiTypes.BINARY,
-        404: APIErrorResponseSerializer,
-        503: APIErrorResponseSerializer,
-    },
-    description=(
-        "Download a specific version "
-        "of a master document."
-    ),
-    tags=["Documents"],
-)
-@api_view(["GET"])
-def download_master_version(
-    request,
-    pk,
-):
-    version = get_object_or_404(
-        MasterDocumentVersion,
-        pk=pk,
-    )
-
-    file_handle = _open_stored_file(
-        version.file,
-        resource_type=(
-            "master_document_version"
-        ),
-        resource_id=version.pk,
-    )
-
-    filename = version.file.name.rsplit(
-        "/",
-        maxsplit=1,
-    )[-1]
-
-    return FileResponse(
-        file_handle,
-        as_attachment=True,
-        filename=filename,
     )

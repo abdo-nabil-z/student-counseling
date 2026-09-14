@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiTypes
 from rest_framework import serializers
 
 from consultation_backend.api_serializers import APIErrorResponseSerializer
@@ -32,6 +32,20 @@ def _render_schema(request_serializer_class, description):
     )
 
 
+def _pdf_render_schema(request_serializer_class, description):
+    return extend_schema(
+        request=request_serializer_class,
+        responses={
+            (200, "application/pdf"): OpenApiTypes.BINARY,
+            400: APIErrorResponseSerializer,
+            404: APIErrorResponseSerializer,
+            422: APIErrorResponseSerializer,
+            501: APIErrorResponseSerializer,
+        },
+        description=description,
+    )
+
+
 # ── Template CRUD ────────────────────────────────────────────────────────────
 
 list_templates = extend_schema(
@@ -50,13 +64,16 @@ get_template = extend_schema(
 )
 
 update_template = extend_schema(
-    request=TemplateSerializer,
+    request={"text/plain": OpenApiTypes.BINARY},
     responses={
         200: TemplateSerializer,
         400: APIErrorResponseSerializer,
         404: APIErrorResponseSerializer,
     },
-    description="Update the content of the template for a specific purpose.",
+    description=(
+        "Update the content of the template for a specific purpose. "
+        "Send the raw template text as the request body (UTF-8 bytestream), "
+    ),
 )
 
 # ── Context schema (dev tooling) ─────────────────────────────────────────────
@@ -122,12 +139,12 @@ render_appointment_cancellation = _render_schema(
     "Render the appointment cancellation email template.",
 )
 
-render_study_plan = _render_schema(
+render_study_plan = _pdf_render_schema(
     StudentRenderSerializer,
-    "Render the study plan document template for a student.",
+    "Render the study_plan template into a PDF.",
 )
 
-render_appointment_minutes = _render_schema(
+render_appointment_minutes = _pdf_render_schema(
     StudentCounselorRenderSerializer,
-    "Render the appointment minutes document template.",
+    "Render the appointment_minutes template into a PDF.",
 )

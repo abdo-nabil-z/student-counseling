@@ -7,7 +7,7 @@ import logging
 from django.db import models, transaction
 from django.core.files.base import File
 
-from documents.models import Document, MasterDocument, MasterDocumentVersion
+from documents.models import Document
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +27,6 @@ def attach_document(file: File, name: str) -> Document:
         raise
     
     return document
-
-
-def add_master_version(master: MasterDocument, file: File) -> MasterDocumentVersion:
-    """Upload a new version for a MasterDocument."""
-    version = MasterDocumentVersion(master=master)
-    
-    try:
-        version.file.save(file.name, file, save=False)
-        version.save()
-    
-    except Exception:
-        _delete_uploaded_file(version.file, record_type="master_document_version")
-        raise
-    
-    return version
 
 
 def _delete_uploaded_file(
