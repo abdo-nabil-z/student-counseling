@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from appointments.models import Appointment
 
@@ -16,7 +16,7 @@ class AppointmentContext(BaseModel):
         return cls(
             date=appointment.start_time.date(),
             start_time=appointment.start_time.time(),
-            end_time=appointment.end_time.time(),
+            end_time=(appointment.start_time+timedelta(minutes=appointment.duration_minutes)).time(),
             location=appointment.location or "",
             status=appointment.status,
         )

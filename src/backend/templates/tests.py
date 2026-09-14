@@ -1,5 +1,6 @@
 from rest_framework.test import APITestCase
 
+from templates.models import Template, Purpose
 
 class TemplateAPIErrorTests(APITestCase):
     def test_unknown_template_purpose_uses_error_contract(self):
@@ -16,6 +17,11 @@ class TemplateAPIErrorTests(APITestCase):
 
     
     def test_missing_render_fields_return_validation_error(self):
+        Template.objects.create(
+            purpose=Purpose.APPOINTMENT_INVITATION_MAIL,
+            content="Test template",
+        )
+
         response = self.client.post(
             "/api/templates/appointment_invitation/render/",
             data={},

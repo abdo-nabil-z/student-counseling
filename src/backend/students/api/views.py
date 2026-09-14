@@ -205,6 +205,8 @@ def upload_final_study_plan(request, student_id):
             200:inline_serializer(
                 name="SemesterCleanupResponse",
                 fields={
+                    "deleted_email_batches": drf_serializers.IntegerField(),
+                    "deleted_email_deliveries": drf_serializers.IntegerField(),
                     "deleted_appointments": drf_serializers.IntegerField(),
                     "deleted_students": drf_serializers.IntegerField(),
                     "deleted_slots": drf_serializers.IntegerField(),
@@ -212,7 +214,13 @@ def upload_final_study_plan(request, student_id):
             ),
             400: APIErrorResponseSerializer,
         },
-        description="Delete all semester data: appointments, students, their documents, and counselor slots.",
+        description=(
+            "Delete all semester-specific data, including "
+            "email history, appointments, students, "
+            "student/appointment documents, and counselor "
+            "availability slots. Persistent counselors and "
+            "templates are preserved."
+        ),
         tags=["Students"],
 )
 @api_view(["DELETE"])

@@ -255,3 +255,107 @@ Response:
   "rendered": "Dear Dr. Jane Smith,\n\nYour available slots:\n\n  - 2026-06-10  09:00:00 – 09:30:00\n  - 2026-06-10  10:00:00 – 10:30:00\n\nBest regards"
 }
 ```
+
+
+## Email generation and delivery
+
+The backend supports generating personalized emails from the existing template system.
+
+Email generation creates two types of database records:
+
+* `EmailBatch`: represents one bulk email operation for a particular purpose.
+* `EmailDelivery`: represents the personalized email for one selected student.
+
+Generated email deliveries contain snapshots of the recipient, CC addresses, subject, and rendered body. Changing the source template or student information afterward does not modify already generated emails.
+
+### Email workflow
+
+Email deliveries use the following statuses:
+
+* `draft`: generated for preview and editing.
+* `queued`: ready for the background email worker.
+* `sent`: successfully accepted by the configured email backend.
+* `failed`: sending failed and automatic retry has been exhausted, or the failure was considered permanent.
+
+Preview mode creates `draft` deliveries. The subject and body may be edited before the batch is queued.
+
+Automatic mode creates `queued` deliveries immediately.
+
+Failed deliveries may be edited and manually queued for another sending cycle.
+
+### Background email worker
+
+Queued emails are processed by a separate Django management command:
+
+```bash
+python manage.py process_email_queue
+```
+
+The worker should run as a separate process alongside the Django web server.
+
+Only one worker should be run for the current implementation.
+
+For development and testing, one ready email can be processed and the command can then exit:
+
+```bash
+python manage.py process_email_queue --once
+```
+
+The project intentionally uses this small database-backed queue instead of Celery or Redis because the expected email volume and deployment size do not currently justify additional queue infrastructure.
+
+### Retry behavior
+
+Each sending cycle permits two attempts by default.
+
+A temporary SMTP or network failure schedules one automatic retry. When the retry also fails, the delivery becomes `failed`.
+
+Permanent SMTP failures are marked as `failed` without an unnecessary retry.
+
+The administrator can inspect the failure, edit the generated email if necessary, and manually resend it.
+
+### Email configuration
+
+Development uses Django's console email backend by default so emails are printed to the backend terminal instead of being sent externally.
+
+Real SMTP sending is configured using environment variables.
+
+Supported settings include:
+
+```text
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=email.uni-rostock.de
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=<ITMZ user ID>
+EMAIL_HOST_PASSWORD=<password>
+DEFAULT_FROM_EMAIL=<university email address>
+
+EMAIL_MAX_SEND_ATTEMPTS=2
+EMAIL_RETRY_DELAY_SECONDS=60
+EMAIL_SEND_INTERVAL_SECONDS=4
+EMAIL_QUEUE_POLL_INTERVAL_SECONDS=5
+```
+
+Credentials must not be hard-coded into Django settings or committed to Git.
+
+### Frontend status polling
+
+The frontend can poll:
+
+```text
+GET /api/mailing/batches/{batch_id}/status/
+```
+
+while a batch is being processed.
+
+The response includes counts for draft, queued, sent, and failed deliveries as well as delivery-level status information.
+
+Polling every few seconds while the relevant page is open is sufficient. WebSockets are not required for the current application.
+
+### Semester cleanup
+
+Email batches and email deliveries are semester-specific data.
+
+Semester cleanup therefore removes all `EmailBatch` and `EmailDelivery` records together with students, appointments, counselor availability slots, and their semester-specific documents.
+
+Reusable email templates are persistent system data and are not deleted during semester cleanup.
