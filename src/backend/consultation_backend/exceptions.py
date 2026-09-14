@@ -4,6 +4,7 @@ from typing import Any
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
+from django.http import Http404
 
 from consultation_backend.api_exceptions import ApplicationAPIException
 
@@ -53,6 +54,9 @@ def _get_error_code(exception: Exception, response: Response) -> str:
     if isinstance(exception, ValidationError):
         return "validation_error"
 
+    if isinstance(exception, Http404):
+        return "resource_not_found"
+    
     if isinstance(response.data, dict):
         detail = response.data.get("detail")
         detail_code = getattr(detail, "code", None)
@@ -67,6 +71,11 @@ def _get_error_message(exception: Exception, response: Response) -> str:
     if isinstance(exception, ValidationError):
         return "The submitted data is invalid."
 
+    if isinstance(exception, Http404):
+        return (
+            "The requested resource does not exist."
+        )
+    
     if isinstance(response.data, dict):
         detail = response.data.get("detail")
 

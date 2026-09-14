@@ -13,6 +13,8 @@ from counselors.models import Counselor, Slot
 from documents.models import Document
 from students.models import Student
 from students.services.semester_cleanup import delete_semester_data
+from mailing.models import EmailBatch, EmailDelivery
+from templates.models import Purpose, Template
 
 
 class StudentAPIErrorTests(APITestCase):
@@ -32,6 +34,32 @@ class StudentAPIErrorTests(APITestCase):
         self.assertEqual(error["code"], "validation_error")
         self.assertIn("confirm", error["details"])
         self.assertEqual(error["request_id"], response["X-Request-ID"])
+
+    def test_semester_cleanup_response_includes_email_counts(
+        self,
+    ):
+        response = self.client.delete(
+            "/api/students/semester-cleanup/",
+            data={
+                "confirm": "DELETE_SEMESTER_DATA",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertIn(
+            "deleted_email_batches",
+            response.data,
+        )
+
+        self.assertIn(
+            "deleted_email_deliveries",
+            response.data,
+        )
 
 
 class StudentDocumentCascadeDeleteTests(TestCase):
@@ -145,6 +173,32 @@ class SemesterCleanupServiceTests(TestCase):
             duration_minutes=30,
         )
 
+        self.template = Template.objects.create(
+            purpose=Purpose.STUDENT_INVITATION_MAIL,
+            content="Dear {{ student.full_name }}",
+        )
+
+        self.email_batch = (
+            EmailBatch.objects.create(
+                purpose=(
+                    Purpose.STUDENT_INVITATION_MAIL
+                )
+            )
+        )
+
+        self.email_delivery = (
+            EmailDelivery.objects.create(
+                batch=self.email_batch,
+                student=self.student,
+                recipient_email=self.student.email,
+                subject="Test subject",
+                body="Test body",
+                status=EmailDelivery.Status.SENT,
+                attempt_count=1,
+                sent_at=timezone.now(),
+            )
+        )
+
 
     def test_cleanup_deletes_semester_data_and_keeps_counselor(self):
         result = delete_semester_data()
@@ -152,18 +206,26 @@ class SemesterCleanupServiceTests(TestCase):
         self.assertEqual(
             result,
             {
+                "deleted_email_batches": 1,
+                "deleted_email_deliveries": 1,
                 "deleted_appointments": 1,
                 "deleted_students": 1,
                 "deleted_slots": 1,
             },
         )
 
+        self.assertEqual(EmailBatch.objects.count(), 0)
+        self.assertEqual(EmailDelivery.objects.count(), 0)
         self.assertEqual(Appointment.objects.count(), 0)
         self.assertEqual(Student.objects.count(), 0)
         self.assertEqual(Slot.objects.count(), 0)
 
         self.assertTrue(
             Counselor.objects.filter(pk=self.counselor.pk).exists()
+        )
+
+        self.assertTrue(
+            Template.objects.filter(pk=self.template.pk).exists()
         )
 
 
@@ -193,4 +255,13 @@ class SemesterCleanupServiceTests(TestCase):
         )
         self.assertTrue(
             Counselor.objects.filter(pk=self.counselor.pk).exists()
+        )
+        self.assertTrue(
+            EmailBatch.objects.filter(pk=self.email_batch.pk).exists()
+        )
+        self.assertTrue(
+            EmailDelivery.objects.filter(pk=self.email_delivery.pk).exists()
+        )
+        self.assertTrue(
+            Template.objects.filter(pk=self.template.pk).exists()
         )

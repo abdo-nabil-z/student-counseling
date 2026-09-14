@@ -1,10 +1,12 @@
 from django.test import override_settings
 from django.urls import path
+from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.test import APITestCase
 
+from students.models import Student
 
 @api_view(["GET"])
 def successful_test_view(request):
@@ -25,6 +27,19 @@ def validation_error_test_view(request):
         }
     )
 
+@api_view(["GET"])
+def missing_resource_test_view(request):
+    student = get_object_or_404(
+        Student,
+        pk=999999999,
+    )
+
+    return Response(
+        {
+            "id": student.pk,
+        }
+    )
+
 
 @api_view(["GET"])
 def unexpected_error_test_view(request):
@@ -35,6 +50,8 @@ urlpatterns = [
     path("api/test/success/", successful_test_view, name="test-success"),
     path("api/test/validation-error/", validation_error_test_view, name="test-validation-error"),
     path("api/test/unexpected-error/", unexpected_error_test_view, name="test-unexpected-error"),
+    path("api/test/missing-resource/",missing_resource_test_view,name="test-missing-resource",
+),
 ]
 
 
@@ -99,6 +116,31 @@ class GlobalErrorHandelingTests(APITestCase):
         body = response.json()
         error = body["error"]
 
-        self.assertEqual(error["code"], "not_found")
+        self.assertEqual(error["code"], "endpoint_not_found")
         self.assertEqual(error["message"], "The requested API endpoint was not found.")
         self.assertEqual(error["request_id"], response["X-Request-ID"])
+
+
+    def test_missing_database_resource_has_distinct_404(
+        self,
+    ):
+        response = self.client.get(
+            "/api/test/missing-resource/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            404,
+        )
+
+        error = response.json()["error"]
+
+        self.assertEqual(
+            error["code"],
+            "resource_not_found",
+        )
+
+        self.assertEqual(
+            error["message"],
+            "The requested resource does not exist.",
+        )

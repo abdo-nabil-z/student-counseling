@@ -46,4 +46,11 @@ class FileStorageUnavailable(ApplicationAPIException):
         "The file storage service is currently unavailable."
     )
     default_code = "file_storage_unavailable"
-    
+
+
+class TemplateNotConfigured(ApplicationAPIException):
+    status_code = 409
+    default_detail = (
+        "The required template is not configured."
+    )
+    default_code = "template_not_configured"

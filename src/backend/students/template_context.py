@@ -24,6 +24,6 @@ class StudentContext(BaseModel):
             email=student.email,
             course_of_studies=student.course_of_studies or "",
             current_study_semester=student.current_study_semester or 0,
-            credit_points=student.credit_points,
+            credit_points=student.credit_points or 0,
             contact_status=student.contact_status,
         )
