@@ -55,24 +55,33 @@ class AppointmentStudentCounselorContext(BaseModel):
         return cls(student=student, counselor=counselor, appointment=appointment)
 
 
-class StudyPlanContext(BaseModel):
+class PDFContext(BaseModel):
+    """Mixin for purpose contexts rendered as a PDF. Subclassing this is what makes
+    purpose_context_schema include the form-field element directives (see
+    templates.rendering.FORM_FIELD_ELEMENTS) alongside the plain data fields."""
+    pass
+
+
+class StudyPlanContext(PDFContext):
     student: StudentContext
-    # elements: TODO
-    
+
     @classmethod
     def build(cls, student_id: int) -> "StudyPlanContext":
-        raise NotImplementedError("StudyPlanContext.build is not implemented yet")
+        student = StudentContext.from_model(Student.objects.get(id=student_id))
+        return cls(student=student)
     
     
-class AppointmentMinutesContext(BaseModel):
+class AppointmentMinutesContext(PDFContext):
     student: StudentContext
     counselor: CounselorContext
     appointment: AppointmentContext
-    # minutes_elements: TODO
-    
+
     @classmethod
     def build(cls, student_id: int, counselor_id: int, appointment_id: int) -> "AppointmentMinutesContext":
-        raise NotImplementedError("AppointmentMinutesContext.build is not implemented yet")
+        student = StudentContext.from_model(Student.objects.get(id=student_id))
+        counselor = CounselorContext.from_model(Counselor.objects.get(id=counselor_id))
+        appointment = AppointmentContext.from_model(Appointment.objects.get(id=appointment_id))
+        return cls(student=student, counselor=counselor, appointment=appointment)
 
     
 

@@ -1,14 +1,14 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from rest_framework.exceptions import NotFound
-from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import NotFound, ParseError
 
 from consultation_backend.api_serializers import APIErrorResponseSerializer
 from templates.models import Template, Purpose
 from templates.api.serializers import TemplateSerializer
 from templates.api import schemas
-from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, flatten_context_schema, annotate_directives
+from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, PDFContext, flatten_context_schema, annotate_directives
+from templates.rendering import FORM_FIELD_ELEMENTS
 from templates.api.render_views import (  # noqa: F401 — re-exported for urls.py
     render_testmail,
     render_student_invitation,
@@ -51,12 +51,15 @@ def update_template(request, purpose):
             detail=f"Unknown template purpose '{purpose}'.",
             code="unknown_template_purpose",
         )
-    
-    template = get_object_or_404(Template, purpose=purpose)
-    serializer = TemplateSerializer(template, data=request.data, partial=True)
-    
-    serializer.is_valid(raise_exception=True)
-    template = serializer.save()
+
+    try:
+        content = request.body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ParseError(detail="Request body must be valid UTF-8 text.") from exc
+
+    template, _ = Template.objects.get_or_create(purpose=purpose)
+    template.content = content
+    template.save()
 
     return Response(
         TemplateSerializer(template).data,
@@ -76,9 +79,14 @@ def purpose_context_schema(request, purpose):
             code="template_context_schema_not_found",
         )
     
-    schema = PURPOSE_CONTEXT_REGISTRY[purpose].model_json_schema()
+    context_class = PURPOSE_CONTEXT_REGISTRY[purpose]
+    schema = context_class.model_json_schema()
     flat = flatten_context_schema(schema)
-    
-    return Response(annotate_directives(flat), status=status.HTTP_200_OK)
+    directives = annotate_directives(flat)
+
+    if issubclass(context_class, PDFContext):
+        directives = directives + [e.model_dump() for e in FORM_FIELD_ELEMENTS]
+
+    return Response(directives, status=status.HTTP_200_OK)
 
 
