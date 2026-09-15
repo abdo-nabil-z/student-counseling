@@ -179,7 +179,7 @@ def _inject_prefill(pdf_bytes: bytes, prefill: dict) -> bytes:
     return out.getvalue()
 
 
-def render_purpose_to_pdf(template_content: str, **context) -> bytes:
+def render_template_to_pdf(template_content: str, **context) -> bytes:
     """Full pipeline: Template.content (Markdown+form tags) -> interactive PDF bytes.
 
     Raises templates.rendering.TemplateRenderError on template errors, or
