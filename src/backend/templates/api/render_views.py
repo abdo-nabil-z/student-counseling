@@ -27,7 +27,7 @@ from templates.context_registry import (
     AppointmentMinutesContext,
 )
 from templates.rendering import TemplateRenderError, render_from_template  # noqa: F401 — re-exported
-from pdf.rendering import render_purpose_to_pdf
+from pdf.rendering import render_template_to_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def _render_pdf_purpose(request, purpose, serializer_class, context_class):
         raise TemplateContextNotImplemented(details={"purpose": purpose}) from exc
 
     try:
-        pdf_bytes = render_purpose_to_pdf(template.content, **ctx.model_dump())
+        pdf_bytes = render_template_to_pdf(template.content, **ctx.model_dump())
     except TemplateRenderError as exc:
         raise TemplateRenderFailed(details=exc.to_dict()) from exc
     except Exception as exc:

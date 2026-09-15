@@ -8,7 +8,8 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 
 from consultation_backend.api_exceptions import (
@@ -22,6 +23,16 @@ from documents.models import Document
 
 
 logger = logging.getLogger(__name__)
+
+
+class BinaryFileRenderer(BaseRenderer):
+    media_type = "application/octet-stream"
+    format = "binary"
+    charset = None
+    render_style = "binary"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
 
 
 def _open_stored_file(
@@ -129,6 +140,7 @@ def delete_document(
     tags=["Documents"],
 )
 @api_view(["GET"])
+@renderer_classes([JSONRenderer, BinaryFileRenderer])
 def download_document(
     request,
     pk,
