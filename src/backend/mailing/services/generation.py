@@ -10,6 +10,7 @@ from students.models import Student
 from templates.api.render_views import TemplateRenderError, render_from_template
 from templates.context_registry import AppointmentStudentCounselorContext, StudentAndBlocksContext
 from templates.models import Purpose, Template
+from counselors.models import Counselor
 
 
 STUDENT_ONLY_PURPOSES = {
@@ -54,11 +55,11 @@ def _get_appointment(student: Student, purpose: str) -> Appointment:
     return appointment
 
 
-def _build_delivery_context(*, student: Student, purpose: str) -> tuple[dict, str, list[str]]:
+def _build_delivery_context(*, student: Student, purpose: str) -> tuple[dict, str, list[str], Counselor | None]:
     if purpose in STUDENT_ONLY_PURPOSES:
         context = StudentAndBlocksContext.build(student_id=student.pk)
 
-        return (context.model_dump(), student.email,[])
+        return (context.model_dump(), student.email, [], None)
 
     if(
         purpose in APPOINTMENT_STUDENT_PURPOSES
@@ -83,12 +84,14 @@ def _build_delivery_context(*, student: Student, purpose: str) -> tuple[dict, st
                 list(
                     counselor.additional_cc or []
                 ),
+                counselor,
             )
 
         return (
             context.model_dump(),
             student.email,
             [],
+            counselor,
         )
 
     raise ValidationError(
@@ -150,7 +153,7 @@ def generate_email_batch(*, purpose: str, student_ids: list[int],send_immediatel
     for student_id in student_ids:
         student = students_by_id[student_id]
 
-        (context, recipient_email, cc) = _build_delivery_context(student=student, purpose=purpose)
+        (context, recipient_email, cc, counselor) = _build_delivery_context(student=student, purpose=purpose)
 
         try:
             rendered_body = render_from_template(template.content, **context)
@@ -164,9 +167,17 @@ def generate_email_batch(*, purpose: str, student_ids: list[int],send_immediatel
                 }
             ) from exc
 
+        recipient_type = (
+            EmailDelivery.RecipientType.COUNSELOR
+            if purpose in COUNSELOR_PURPOSES
+            else EmailDelivery.RecipientType.STUDENT
+        )
+
         EmailDelivery.objects.create(
             batch=batch,
+            recipient_type=recipient_type,
             student=student,
+            counselor=counselor,
             recipient_email=recipient_email,
             cc=cc,
             subject=(

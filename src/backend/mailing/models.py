@@ -1,5 +1,6 @@
 from django.db import models
 
+from counselors.models import Counselor
 from students.models import Student
 from templates.models import Purpose
 
@@ -22,9 +23,16 @@ class EmailDelivery(models.Model):
         SENT = "sent", "Sent"
         FAILED = "failed", "Failed"
 
+    class RecipientType(models.TextChoices):
+        STUDENT = "student", "Student"
+        COUNSELOR = "counselor", "Counselor"
+
     batch = models.ForeignKey(EmailBatch, on_delete=models.CASCADE, related_name="deliveries")
 
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="email_deliveries")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="email_deliveries", null=True, blank=True)
+    counselor = models.ForeignKey(Counselor, on_delete=models.CASCADE, related_name="email_deliveries", null=True, blank=True)
+
+    recipient_type = models.CharField(max_length=20, choices=RecipientType.choices, default=RecipientType.STUDENT)
 
     recipient_email = models.EmailField()
 
@@ -45,6 +53,17 @@ class EmailDelivery(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(recipient_type="student", student__isnull=False)
+                    |
+                    models.Q(recipient_type="counselor", counselor__isnull=False)
+                ),
+                name= "email_delivery_requires_recipient_entity"
+            )
+        ]
 
     def __str__(self):
         return (

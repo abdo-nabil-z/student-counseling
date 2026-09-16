@@ -254,6 +254,16 @@ class EmailBatchGenerationTests(APITestCase):
             delivery.body,
         )
 
+        self.assertEqual(
+            delivery.recipient_type,
+            EmailDelivery.RecipientType.STUDENT,
+        )
+
+        self.assertEqual(
+            delivery.counselor_id,
+            self.counselor.pk,
+        )
+
     def test_counselor_email_targets_counselor_and_uses_cc(
         self,
     ):
@@ -294,6 +304,21 @@ class EmailBatchGenerationTests(APITestCase):
         self.assertEqual(
             delivery.cc,
             self.counselor.additional_cc,
+        )
+
+        self.assertEqual(
+            delivery.recipient_type,
+            EmailDelivery.RecipientType.COUNSELOR,
+        )
+
+        self.assertEqual(
+            delivery.student_id,
+            self.student_one.pk,
+        )
+
+        self.assertEqual(
+            delivery.counselor_id,
+            self.counselor.pk,
         )
 
     def test_missing_appointment_rolls_back_entire_batch(

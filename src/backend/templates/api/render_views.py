@@ -23,6 +23,8 @@ from templates.context_registry import (
     TestmailContext,
     StudentAndBlocksContext,
     AppointmentStudentCounselorContext,
+    CounselorOnlyContext,
+    CounselorAppointmentsContext,
     StudyPlanContext,
     AppointmentMinutesContext,
 )
@@ -147,3 +149,24 @@ def render_study_plan(request):
 def render_appointment_minutes(request):
     return _render_pdf_purpose(request, Purpose.APPOINTMENT_MINUTES, StudentCounselorRenderSerializer, AppointmentMinutesContext)
 
+
+@schemas.render_counselor_availability_request
+@api_view(["POST"])
+def render_counselor_availability_request(request):
+    return _render_purpose(
+        request,
+        Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL,
+        CounselorRenderSerializer,
+        CounselorOnlyContext,
+    )
+
+
+@schemas.render_counselor_appointments_summary
+@api_view(["POST"])
+def render_counselor_appointments_summary(request):
+    return _render_purpose(
+        request,
+        Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL,
+        CounselorRenderSerializer,
+        CounselorAppointmentsContext,
+    )

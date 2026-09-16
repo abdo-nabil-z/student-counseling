@@ -148,3 +148,23 @@ render_appointment_minutes = _pdf_render_schema(
     StudentCounselorRenderSerializer,
     "Render the appointment_minutes template into a PDF.",
 )
+
+render_counselor_availability_request = (
+    _render_schema(
+        CounselorRenderSerializer,
+        (
+            "Render the counselor availability "
+            "request email template."
+        ),
+    )
+)
+
+render_counselor_appointments_summary = (
+    _render_schema(
+        CounselorRenderSerializer,
+        (
+            "Render the accepted appointments "
+            "summary email for a counselor."
+        ),
+    )
+)
