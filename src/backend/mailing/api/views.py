@@ -30,9 +30,9 @@ from mailing.services.status import build_email_batch_status
         422: APIErrorResponseSerializer,
     },
     description=(
-        "Generate a personalized email batch for the selected students."
-        " Preview mode creates draft deliveries; "
-        "automatic mode creates queued deliveries."
+        "Generate a personalized email batch for the selected students or counselors."
+        " The target type is determined by the email purpose."
+        " Preview mode creates draft deliveries; automatic mode creates queued deliveries."
     ),
     tags=["Mailing"],
 )
@@ -43,9 +43,9 @@ def create_email_batch(request):
     serializer.is_valid(raise_exception=True)
 
     batch = generate_email_batch(
-        purpose=(serializer.validated_data["purpose"]),
-        student_ids=(serializer.validated_data["student_ids"]),
-        send_immediately=(serializer.validated_data["send_immediately"])
+        purpose= serializer.validated_data["purpose"],
+        target_ids= serializer.validated_data["target_ids"],
+        send_immediately= serializer.validated_data["send_immediately"],
     )
 
     response_serializer = (EmailBatchDetailSerializer(batch))
@@ -64,7 +64,9 @@ def create_email_batch(request):
 )
 @api_view(["GET"])
 def get_email_batch(request, batch_id):
-    batch = get_object_or_404(EmailBatch.objects.prefetch_related("deliveries__student"),pk=batch_id)
+    batch = get_object_or_404(
+        EmailBatch.objects.prefetch_related("deliveries__student", "deliveries__counselor"),
+        pk=batch_id)
 
     serializer = EmailBatchDetailSerializer(batch)
 
@@ -99,7 +101,7 @@ def get_email_batch(request, batch_id):
 )
 @api_view(["GET", "PATCH"])
 def email_delivery_detail(request, delivery_id):
-    delivery = get_object_or_404(EmailDelivery.objects.select_related("student", "batch"), pk=delivery_id)
+    delivery = get_object_or_404(EmailDelivery.objects.select_related("student", "counselor", "batch"), pk=delivery_id)
 
     if request.method == "GET":
         serializer = (EmailDeliveryPreviewSerializer(delivery))
@@ -150,7 +152,7 @@ def send_email_batch(request, batch_id):
 
     queue_email_batch(batch)
 
-    batch = EmailBatch.objects.prefetch_related("deliveries__student").get(pk=batch.pk)
+    batch = EmailBatch.objects.prefetch_related("deliveries__student", "deliveries__counselor").get(pk=batch.pk)
 
     serializer = EmailBatchDetailSerializer(batch)
 
@@ -195,7 +197,7 @@ def get_email_batch_status(request, batch_id):
 @api_view(["POST"])
 def resend_email_delivery(request, delivery_id):
     delivery = get_object_or_404(
-        EmailDelivery.objects.select_related("student", "batch"), pk= delivery_id
+        EmailDelivery.objects.select_related("student", "counselor", "batch"), pk= delivery_id
     )
 
     delivery = requeue_failed_delivery(delivery)

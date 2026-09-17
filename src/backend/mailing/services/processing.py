@@ -97,15 +97,18 @@ def _schedule_retry(delivery: EmailDelivery)->None:
             "Email delivery retry scheduled: "
             "delivery_id=%s "
             "batch_id=%s "
+            "recipient_type=%s "
             "student_id=%s "
-            "attempt=%s "
-            "next_attempt_at=%s"
+            "counselor_id=%s "
+            "attempt=%s"
         ),
         delivery.pk,
         delivery.batch_id,
+        delivery.recipient_type,
         delivery.student_id,
+        delivery.counselor_id,
         delivery.attempt_count,
-        delivery.next_attempt_at,
+        exc_info=True,
     )
 
 
@@ -126,13 +129,18 @@ def _mark_failed(delivery: EmailDelivery)->None:
             "Email delivery permanently failed: "
             "delivery_id=%s "
             "batch_id=%s "
+            "recipient_type=%s "
             "student_id=%s "
-            "attempts=%s"
+            "counselor_id=%s "
+            "attempt=%s"
         ),
         delivery.pk,
         delivery.batch_id,
+        delivery.recipient_type,
         delivery.student_id,
+        delivery.counselor_id,
         delivery.attempt_count,
+        exc_info=True,
     )
 
 
@@ -186,7 +194,8 @@ def get_next_ready_delivery():
         )
         .select_related(
             "batch",
-            "student"
+            "student",
+            "counselor",
         )
         .order_by(
             "created_at",

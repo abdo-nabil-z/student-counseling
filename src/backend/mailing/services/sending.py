@@ -106,12 +106,16 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
                 "Email delivery failed: "
                 "delivery_id=%s "
                 "batch_id=%s "
+                "recipient_type=%s "
                 "student_id=%s "
+                "counselor_id=%s"
                 "attempt=%s"
             ),
             delivery.pk,
             delivery.batch_id,
+            delivery.recipient_type,
             delivery.student_id,
+            delivery.counselor_id,
             delivery.attempt_count,
             exc_info=True,
         )
@@ -125,11 +129,15 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
             "Email delivery sent successfully: "
             "delivery_id=%s "
             "batch_id=%s "
+            "recipient_type=%s "
             "student_id=%s "
+            "counselor_id=%s "
             "attempt=%s"
         ),
         delivery.pk,
         delivery.batch_id,
+        delivery.recipient_type,
         delivery.student_id,
+        delivery.counselor_id,
         delivery.attempt_count,
     )
