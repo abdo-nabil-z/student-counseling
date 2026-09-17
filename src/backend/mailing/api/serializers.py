@@ -1,6 +1,7 @@
+from django.urls import reverse
 from rest_framework import serializers
 
-from mailing.models import EmailBatch, EmailDelivery
+from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
 from mailing.purpose_config import EMAIL_PURPOSE_CHOICES, EMAIL_PURPOSE_CONFIG
 from students.models import Student
 from templates.models import Purpose
@@ -70,12 +71,82 @@ class EmailBatchCreateSerializer(serializers.Serializer):
         return attrs
 
 
+class EmailAttachmentSerializer(serializers.ModelSerializer):
+    source_document_id = (
+        serializers.IntegerField(
+            read_only=True,
+            allow_null=True,
+        )
+    )
+
+    download_url = (
+        serializers.SerializerMethodField()
+    )
+
+    class Meta:
+        model = EmailAttachment
+
+        fields = [
+            "id",
+            "source",
+            "source_document_id",
+            "name",
+            "content_type",
+            "download_url",
+            "created_at",
+        ]
+
+    def get_download_url(
+        self,
+        obj,
+    ):
+        return reverse(
+            (
+                "mailing_api:"
+                "download-email-attachment"
+            ),
+            args=[
+                obj.delivery_id,
+                obj.pk,
+            ],
+        )
+
+
+class EmailAttachmentUploadSerializer(
+    serializers.Serializer
+):
+    file = serializers.FileField()
+
+    name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        help_text=(
+            "Display name. Defaults to the "
+            "uploaded filename."
+        ),
+    )
+
+
+class ExistingEmailAttachmentSerializer(
+    serializers.Serializer
+):
+    document_id = serializers.IntegerField(
+        min_value=1,
+    )
+
+
 class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
     student_id = serializers.IntegerField(read_only=True, allow_null=True)
     student_name = serializers.SerializerMethodField()
 
     counselor_id = serializers.IntegerField(read_only=True, allow_null=True)
     counselor_name = serializers.SerializerMethodField()
+
+    attachments = EmailAttachmentSerializer(
+    many=True,
+    read_only=True,
+)
 
     def get_student_name(self, obj):
         if obj.student is None:
@@ -91,6 +162,7 @@ class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EmailDelivery
+
         fields = [
             "id",
             "recipient_type",
@@ -103,6 +175,7 @@ class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
             "subject",
             "body",
             "status",
+            "attachments",
             "created_at",
         ]
 

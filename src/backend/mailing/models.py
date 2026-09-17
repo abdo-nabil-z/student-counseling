@@ -3,6 +3,7 @@ from django.db import models
 from counselors.models import Counselor
 from students.models import Student
 from templates.models import Purpose
+from documents.models import Document
 
 
 class EmailBatch(models.Model):
@@ -70,3 +71,35 @@ class EmailDelivery(models.Model):
             f"Email delivery {self.pk}"
             f"to {self.recipient_email}"
         )
+
+
+class EmailAttachment(models.Model):
+    class Source(models.TextChoices):
+        EXISTING = "existing", "Existing document"
+        UPLOADED = "uploaded", "Uploaded for email"
+        GENERATED = "generated", "Generated file"
+
+    delivery = models.ForeignKey(EmailDelivery, on_delete=models.CASCADE, related_name="attachments")
+
+    source = models.CharField(max_length=20, choices=Source.choices)
+
+    source_document = models.ForeignKey(Document, on_delete= models.SET_NULL, null=True, blank=True, related_name="+")
+
+    file = models.FileField(upload_to="mailing/attachments/%Y/%m/", blank=True)
+
+    name = models.CharField(max_length=255)
+
+    content_type = models.CharField(max_length=255, default="application/octet-stream")
+
+    cleaned_at = models.DateTimeField(null=True, blank=True)
+
+    cleanup_error = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"Attachment {self.pk} for delivery {self.delivery_id}: {self.name}"
+    
