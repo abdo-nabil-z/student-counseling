@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
-from mailing.models import EmailDelivery
+from mailing.models import EmailDelivery, EmailAttachment
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,74 @@ def _record_send_success(delivery: EmailDelivery)->None:
     )
 
 
+def _attach_delivery_files(message, delivery: EmailDelivery) -> None:
+    for attachment in delivery.attachments.all():
+        if attachment.source == EmailAttachment.Source.GENERATED:
+            document = attachment.source_document
+
+            if document is None or not document.file or not document.file.name:
+                raise FileNotFoundError(
+                    f"Generated attachment {attachment.pk} has no stored document."
+                )
+
+            document.file.open("rb")
+            try:
+                content = document.file.read()
+            finally:
+                document.file.close()
+
+        else:
+            if not attachment.file or not attachment.file.name:
+                raise FileNotFoundError(
+                    f"Email attachment {attachment.pk} has no stored file."
+                )
+
+            attachment.file.open("rb")
+            try:
+                content = attachment.file.read()
+            finally:
+                attachment.file.close()
+
+        message.attach(
+            attachment.name,
+            content,
+            attachment.content_type or "application/octet-stream",
+        )
+
+
+def _cleanup_attachment_file(attachment: EmailAttachment) -> None:
+    if not attachment.file or not attachment.file.name:
+        return
+
+    storage = attachment.file.storage
+    file_name = attachment.file.name
+
+    storage.delete(file_name)
+
+    attachment.file = ""
+
+
+def _cleanup_generated_document(attachment: EmailAttachment) -> None:
+    document = attachment.source_document
+
+    if document is None:
+        return
+
+    if document.file and document.file.name:
+        storage = document.file.storage
+        file_name = document.file.name
+
+        storage.delete(file_name)
+
+        # Prevent the Document post_delete signal from trying
+        # to delete the same physical file again.
+        document.file.name = ""
+
+    document.delete()
+    attachment.source_document = None
+
+
+
 def send_email_delivery_once(delivery: EmailDelivery)->None:
     """
     Attempt to send one queued email delivery exactly once.
@@ -89,6 +157,7 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
     _record_send_attempt(delivery)
 
     try:
+        _attach_delivery_files(message, delivery)
         sent_count = message.send(fail_silently=False)
 
         if sent_count != 1:
@@ -108,7 +177,7 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
                 "batch_id=%s "
                 "recipient_type=%s "
                 "student_id=%s "
-                "counselor_id=%s"
+                "counselor_id=%s "
                 "attempt=%s"
             ),
             delivery.pk,
@@ -123,6 +192,8 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
         raise
 
     _record_send_success(delivery)
+
+    cleanup_sent_delivery_attachments(delivery)
 
     logger.info(
         (
@@ -141,3 +212,48 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
         delivery.counselor_id,
         delivery.attempt_count,
     )
+
+
+
+def cleanup_sent_delivery_attachments(delivery: EmailDelivery) -> None:
+    try:
+        attachments = list(delivery.attachments.select_related("source_document").all())
+    except Exception:
+        logger.exception(
+            "Could not load attachments for post-send cleanup",
+            extra={"delivery_id": delivery.pk},
+        )
+        return
+
+    for attachment in attachments:
+        try:
+            if attachment.source == EmailAttachment.Source.GENERATED:
+                _cleanup_generated_document(attachment)
+            else:
+                _cleanup_attachment_file(attachment)
+
+            attachment.cleaned_at = timezone.now()
+            attachment.cleanup_error = ""
+            attachment.save()
+
+        except Exception as exc:
+            logger.exception(
+                "Failed to clean email attachment after successful send",
+                extra={
+                    "delivery_id": delivery.pk,
+                    "attachment_id": attachment.pk,
+                },
+            )
+
+            attachment.cleanup_error = str(exc)
+
+            try:
+                attachment.save(update_fields=["cleanup_error"])
+            except Exception:
+                logger.exception(
+                    "Failed to record email attachment cleanup error",
+                    extra={
+                        "delivery_id": delivery.pk,
+                        "attachment_id": attachment.pk,
+                    },
+                )

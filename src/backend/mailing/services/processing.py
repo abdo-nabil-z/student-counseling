@@ -197,6 +197,9 @@ def get_next_ready_delivery():
             "student",
             "counselor",
         )
+        .prefetch_related(
+            "attachments__source_document"
+        )
         .order_by(
             "created_at",
             "id"
