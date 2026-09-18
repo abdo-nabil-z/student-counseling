@@ -83,6 +83,8 @@ class EmailAttachmentSerializer(serializers.ModelSerializer):
         serializers.SerializerMethodField()
     )
 
+    document_id = serializers.SerializerMethodField()
+
     class Meta:
         model = EmailAttachment
 
@@ -90,6 +92,7 @@ class EmailAttachmentSerializer(serializers.ModelSerializer):
             "id",
             "source",
             "source_document_id",
+            "document_id",
             "name",
             "content_type",
             "download_url",
@@ -100,6 +103,8 @@ class EmailAttachmentSerializer(serializers.ModelSerializer):
         self,
         obj,
     ):
+        if obj.source == EmailAttachment.Source.GENERATED:
+            return None
         return reverse(
             (
                 "mailing_api:"
@@ -110,6 +115,12 @@ class EmailAttachmentSerializer(serializers.ModelSerializer):
                 obj.pk,
             ],
         )
+
+    def get_document_id(self, obj):
+        if(obj.source == EmailAttachment.Source.GENERATED):
+            return obj.source_document_id
+
+        return None
 
 
 class EmailAttachmentUploadSerializer(
@@ -178,6 +189,25 @@ class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
             "attachments",
             "created_at",
         ]
+
+
+class GeneratedEmailAttachmentSerializer(serializers.Serializer):
+    purpose = serializers.ChoiceField(choices=[
+        (
+            Purpose.STUDY_PLAN,
+            Purpose.STUDY_PLAN.label,
+        ),
+        (
+            Purpose.APPOINTMENT_MINUTES,
+            Purpose.APPOINTMENT_MINUTES.label,
+        )
+    ])
+
+    name = serializers.CharField(required=False, allow_blank=True, max_length=255, help_text="Optional PDF name. The .pdf extension is added automatically.")
+
+
+class GeneratedEmailAttachmentResponseSerializer(serializers.Serializer):
+    document_id = serializers.IntegerField()
 
 
 class EmailDeliveryUpdateSerializer(serializers.Serializer):

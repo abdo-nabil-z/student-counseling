@@ -11,6 +11,7 @@ from mailing.api.views import (
     delete_email_attachment,
     download_email_attachment,
     upload_email_attachment,
+    generate_email_pdf_attachment
 )
 
 app_name = "mailing_api"
@@ -27,4 +28,5 @@ urlpatterns = [
     path("deliveries/<int:delivery_id>/attachments/existing/", attach_existing_document_to_email, name="attach-existing-document"),
     path("deliveries/<int:delivery_id>/attachments/<int:attachment_id>/", delete_email_attachment, name="delete-email-attachment"),
     path("deliveries/<int:delivery_id>/attachments/<int:attachment_id>/download/", download_email_attachment, name="download-email-attachment"),
+    path("deliveries/<int:delivery_id>/attachments/generated/", generate_email_pdf_attachment, name="generate-email-pdf-attachment")
 ]

@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import (
 )
 from django.test import override_settings
 from django.urls import reverse
-
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -18,7 +18,8 @@ from mailing.models import (
     EmailDelivery,
 )
 from students.models import Student
-from templates.models import Purpose
+from templates.models import Purpose, Template
+from appointments.models import Appointment
 
 
 class EmailAttachmentTests(APITestCase):
@@ -105,6 +106,33 @@ class EmailAttachmentTests(APITestCase):
                 "initial_study_plan"
             ]
         )
+
+        Template.objects.update_or_create(
+            purpose=Purpose.STUDY_PLAN,
+            defaults={
+                "content": (
+                    "# Study Plan\n\n"
+                    "Student: "
+                    "{{ student.full_name }}"
+                )
+            },
+        )
+
+        Template.objects.update_or_create(
+            purpose=(
+                Purpose.APPOINTMENT_MINUTES
+            ),
+            defaults={
+                "content": (
+                    "# Appointment Minutes\n\n"
+                    "Student: "
+                    "{{ student.full_name }}\n\n"
+                    "Counselor: "
+                    "{{ counselor.full_name }}"
+                )
+            },
+        )
+
 
     def tearDown(self):
         self.settings_override.disable()
@@ -648,4 +676,370 @@ class EmailAttachmentTests(APITestCase):
         self.assertEqual(
             attachment.source_document_id,
             self.initial_document.pk,
+        )
+
+
+    def test_generated_pdf_returns_document_id(
+        self,
+    ):
+        url = reverse(
+            (
+                "mailing_api:"
+                "generate-email-pdf-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        response = self.client.post(
+            url,
+            data={
+                "purpose": (
+                    Purpose.STUDY_PLAN
+                )
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        self.assertEqual(
+            set(response.data.keys()),
+            {
+                "document_id",
+            },
+        )
+
+        document_id = (
+            response.data["document_id"]
+        )
+
+        self.assertTrue(
+            Document.objects.filter(
+                pk=document_id
+            ).exists()
+        )
+
+        attachment = (
+            EmailAttachment.objects.get(
+                delivery=self.delivery
+            )
+        )
+
+        self.assertEqual(
+            attachment.source,
+            EmailAttachment.Source.GENERATED,
+        )
+
+        self.assertEqual(
+            attachment.source_document_id,
+            document_id,
+        )
+
+        self.assertFalse(
+            bool(attachment.file)
+        )
+
+        self.assertEqual(
+            attachment.content_type,
+            "application/pdf",
+        )
+
+
+
+    def test_generated_document_contains_pdf(
+        self,
+    ):
+        url = reverse(
+            (
+                "mailing_api:"
+                "generate-email-pdf-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        response = self.client.post(
+            url,
+            data={
+                "purpose": (
+                    Purpose.STUDY_PLAN
+                )
+            },
+            format="json",
+        )
+
+        document = Document.objects.get(
+            pk=response.data["document_id"]
+        )
+
+        document.file.open("rb")
+
+        try:
+            content = document.file.read()
+
+        finally:
+            document.file.close()
+
+        self.assertTrue(
+            content.startswith(
+                b"%PDF"
+            )
+        )
+
+
+    def test_generated_pdf_can_be_downloaded_through_documents_api(
+        self,
+    ):
+        generate_url = reverse(
+            (
+                "mailing_api:"
+                "generate-email-pdf-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        generate_response = (
+            self.client.post(
+                generate_url,
+                data={
+                    "purpose": (
+                        Purpose.STUDY_PLAN
+                    )
+                },
+                format="json",
+            )
+        )
+
+        document_id = (
+            generate_response.data[
+                "document_id"
+            ]
+        )
+
+        download_url = reverse(
+            "documents_api:download",
+            args=[document_id],
+        )
+
+        response = self.client.get(
+            download_url
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        content = b"".join(
+            response.streaming_content
+        )
+
+        self.assertTrue(
+            content.startswith(
+                b"%PDF"
+            )
+        )
+
+
+    def test_generated_pdf_and_uploaded_file_can_coexist(
+        self,
+    ):
+        upload_url = reverse(
+            (
+                "mailing_api:"
+                "upload-email-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        upload_response = (
+            self.client.post(
+                upload_url,
+                data={
+                    "file": (
+                        SimpleUploadedFile(
+                            "notes.txt",
+                            b"Professor notes",
+                            content_type=(
+                                "text/plain"
+                            ),
+                        )
+                    )
+                },
+                format="multipart",
+            )
+        )
+
+        self.assertEqual(
+            upload_response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        generated_url = reverse(
+            (
+                "mailing_api:"
+                "generate-email-pdf-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        generated_response = (
+            self.client.post(
+                generated_url,
+                data={
+                    "purpose": (
+                        Purpose.STUDY_PLAN
+                    )
+                },
+                format="json",
+            )
+        )
+
+        self.assertEqual(
+            generated_response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        attachments = (
+            EmailAttachment.objects.filter(
+                delivery=self.delivery
+            )
+        )
+
+        self.assertEqual(
+            attachments.count(),
+            2,
+        )
+
+        self.assertTrue(
+            attachments.filter(
+                source=(
+                    EmailAttachment
+                    .Source
+                    .UPLOADED
+                )
+            ).exists()
+        )
+
+        self.assertTrue(
+            attachments.filter(
+                source=(
+                    EmailAttachment
+                    .Source
+                    .GENERATED
+                )
+            ).exists()
+        )
+
+
+    def test_appointment_minutes_pdf_can_be_generated(
+        self,
+    ):
+        Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            start_time=timezone.now(),
+            duration_minutes=30,
+            location="AE22-R273",
+        )
+
+        url = reverse(
+            (
+                "mailing_api:"
+                "generate-email-pdf-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        response = self.client.post(
+            url,
+            data={
+                "purpose": (
+                    Purpose.APPOINTMENT_MINUTES
+                )
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        document = Document.objects.get(
+            pk=response.data["document_id"]
+        )
+
+        self.assertTrue(
+            bool(document.file)
+        )
+
+
+    def test_deleting_generated_attachment_deletes_generated_document(
+        self,
+    ):
+        generate_url = reverse(
+            (
+                "mailing_api:"
+                "generate-email-pdf-attachment"
+            ),
+            args=[self.delivery.pk],
+        )
+
+        response = self.client.post(
+            generate_url,
+            data={
+                "purpose": (
+                    Purpose.STUDY_PLAN
+                )
+            },
+            format="json",
+        )
+
+        document_id = (
+            response.data["document_id"]
+        )
+
+        attachment = (
+            EmailAttachment.objects.get(
+                delivery=self.delivery,
+                source=(
+                    EmailAttachment
+                    .Source
+                    .GENERATED
+                ),
+            )
+        )
+
+        delete_url = reverse(
+            (
+                "mailing_api:"
+                "delete-email-attachment"
+            ),
+            args=[
+                self.delivery.pk,
+                attachment.pk,
+            ],
+        )
+
+        with self.captureOnCommitCallbacks(
+            execute=True
+        ):
+            delete_response = (
+                self.client.delete(
+                    delete_url
+                )
+            )
+
+        self.assertEqual(
+            delete_response.status_code,
+            status.HTTP_204_NO_CONTENT,
+        )
+
+        self.assertFalse(
+            Document.objects.filter(
+                pk=document_id
+            ).exists()
         )

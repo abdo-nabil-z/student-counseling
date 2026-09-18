@@ -18,6 +18,8 @@ from mailing.api.serializers import (
     EmailAttachmentSerializer,
     EmailAttachmentUploadSerializer,
     ExistingEmailAttachmentSerializer,
+    GeneratedEmailAttachmentSerializer,
+    GeneratedEmailAttachmentResponseSerializer,
 )
 from mailing.api_exceptions import EmailDeliveryNotEditable
 from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
@@ -25,7 +27,11 @@ from mailing.services.generation import generate_email_batch
 from mailing.services.queueing import queue_email_batch
 from mailing.services.resending import requeue_failed_delivery
 from mailing.services.status import build_email_batch_status
-from mailing.services.attachments import create_existing_document_attachment, create_uploaded_attachment
+from mailing.services.attachments import (
+    create_existing_document_attachment,
+    create_uploaded_attachment,
+    create_generated_pdf_attachment,
+)
 from mailing.api.renderers import BinaryFileRenderer
 from documents.models import Document
 
@@ -507,3 +513,78 @@ def download_email_attachment(
     )
 
 
+@extend_schema(
+    request=(
+        GeneratedEmailAttachmentSerializer
+    ),
+    responses={
+        201: (
+            GeneratedEmailAttachmentResponseSerializer
+        ),
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer,
+        409: APIErrorResponseSerializer,
+        422: APIErrorResponseSerializer,
+    },
+    description=(
+        "Generate a PDF from an existing "
+        "PDF template, attach it to this "
+        "email delivery, and return the "
+        "created Document ID for preview "
+        "through the Documents API."
+    ),
+    tags=["Mailing"],
+)
+@api_view(["POST"])
+def generate_email_pdf_attachment(
+    request,
+    delivery_id,
+):
+    delivery = get_object_or_404(
+        EmailDelivery.objects.select_related(
+            "student",
+            "counselor",
+            "batch",
+        ),
+        pk=delivery_id,
+    )
+
+    _ensure_delivery_editable(
+        delivery
+    )
+
+    serializer = (
+        GeneratedEmailAttachmentSerializer(
+            data=request.data
+        )
+    )
+
+    serializer.is_valid(
+        raise_exception=True
+    )
+
+    attachment = (
+        create_generated_pdf_attachment(
+            delivery=delivery,
+            purpose=(
+                serializer.validated_data[
+                    "purpose"
+                ]
+            ),
+            name=(
+                serializer.validated_data.get(
+                    "name"
+                )
+            ),
+        )
+    )
+
+    return Response(
+        {
+            "document_id": (
+                attachment
+                .source_document_id
+            )
+        },
+        status=status.HTTP_201_CREATED,
+    )
