@@ -101,7 +101,7 @@ def create_email_batch(request):
             200: EmailBatchDetailSerializer,
             404: APIErrorResponseSerializer,
         },
-        description=("Get an email batch and all generated emmail deliveries for preview."),
+        description="Get an email batch and all generated email deliveries for preview.",
         tags=["Mailing"],
     
 )

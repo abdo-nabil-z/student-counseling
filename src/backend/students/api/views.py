@@ -108,7 +108,7 @@ def detail_student(request, student_id):
         400: OpenApiResponse(description="Validation errors"),
         404: OpenApiResponse(description="Student not found")
     },
-    description="Upload the initial study plan PDF for a student. Replaces any existing one.",
+    description="Upload the initial study plan file for a student. Replaces any existing one.",
     tags=["Students"],
 )
 @api_view(["POST"])
@@ -164,7 +164,7 @@ def get_student_appointment(request, student_id):
         400: APIErrorResponseSerializer,
         404: APIErrorResponseSerializer
     },
-    description="Upload the final study plan PDF for a student. Replaces any existing one.",
+    description="Upload the final study plan file for a student. Replaces any existing one.",
     tags=["Students"],
 )
 @api_view(["POST"])

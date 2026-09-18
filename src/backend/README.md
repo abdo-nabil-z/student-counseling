@@ -191,7 +191,7 @@ Before writing a template, fetch the flat variable list for the purpose:
 
 ```
 
-GET /api/templates/purposes/{purpose}/context-schema/
+GET /api/templates/{purpose}/context-schema/
 
 ````
 
@@ -203,10 +203,10 @@ Example response for `testmail`:
   {"path": "counselor.last_name",  "type": "string"},
   {"path": "counselor.full_name",  "type": "string"},
   {"path": "counselor.department", "type": "string"},
-  {"path": "counselor.availability_blocks",        "type": "array"},
-  {"path": "counselor.availability_blocks[].date",       "type": "date"},
-  {"path": "counselor.availability_blocks[].start_time", "type": "time"},
-  {"path": "counselor.availability_blocks[].end_time",   "type": "time"}
+  {"path": "counselor.slots",        "type": "array"},
+  {"path": "counselor.slots[].date",       "type": "date"},
+  {"path": "counselor.slots[].start_time", "type": "time"},
+  {"path": "counselor.slots[].end_time",   "type": "time"}
 ]
 ````
 
@@ -236,7 +236,7 @@ Example response for `testmail`:
 
 ### End-to-end example with "testmail"
 
-**1. Create the template** (`PUT /api/templates/create/`):
+**1. Create the template** (`PUT /api/templates/create/`): this doesnt exist anymore
 
 ```json
 {
@@ -248,7 +248,7 @@ Example response for `testmail`:
 
 Note the `id` in the response.
 
-**2. Render a preview** (`POST /api/templates/generate/testmail/?template_id={id}`):
+**2. Render a preview** (`POST /api/templates/generate/testmail/?template_id={id}`): this doesnt exist anymore
 
 ```json
 {
@@ -271,7 +271,7 @@ The backend supports generating personalized emails from the existing template s
 Email generation creates two types of database records:
 
 - `EmailBatch`: represents one bulk email operation for a particular purpose.
-- `EmailDelivery`: represents the personalized email for one selected student.
+- `EmailDelivery`: represents one personalized email for a student or counselor recipient.
 
 Generated email deliveries contain snapshots of the recipient, CC addresses, subject, and rendered body. Changing the source template or student information afterward does not modify already generated emails.
 
