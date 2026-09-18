@@ -119,6 +119,20 @@ class EmailAttachmentTests(APITestCase):
         )
 
         Template.objects.update_or_create(
+            purpose=Purpose.STUDENT_INVITATION_MAIL,
+            defaults={
+                "content": "Dear {{ student.first_name }}, this is a test invitation."
+            },
+        )
+
+        Template.objects.update_or_create(
+            purpose=Purpose.STUDY_PLAN,
+            defaults={
+                "content": "# Study Plan\n\nStudent: {{ student.full_name }}"
+            },
+        )
+
+        Template.objects.update_or_create(
             purpose=(
                 Purpose.APPOINTMENT_MINUTES
             ),
