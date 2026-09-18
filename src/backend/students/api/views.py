@@ -205,6 +205,7 @@ def upload_final_study_plan(request, student_id):
             200:inline_serializer(
                 name="SemesterCleanupResponse",
                 fields={
+                    "deleted_email_attachments": drf_serializers.IntegerField(),
                     "deleted_email_batches": drf_serializers.IntegerField(),
                     "deleted_email_deliveries": drf_serializers.IntegerField(),
                     "deleted_appointments": drf_serializers.IntegerField(),

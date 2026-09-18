@@ -13,7 +13,7 @@ from counselors.models import Counselor, Slot
 from documents.models import Document
 from students.models import Student
 from students.services.semester_cleanup import delete_semester_data
-from mailing.models import EmailBatch, EmailDelivery
+from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
 from templates.models import Purpose, Template
 
 
@@ -58,6 +58,11 @@ class StudentAPIErrorTests(APITestCase):
 
         self.assertIn(
             "deleted_email_deliveries",
+            response.data,
+        )
+
+        self.assertIn(
+            "deleted_email_attachments",
             response.data,
         )
 
@@ -206,6 +211,7 @@ class SemesterCleanupServiceTests(TestCase):
         self.assertEqual(
             result,
             {
+                "deleted_email_attachments": 0,
                 "deleted_email_batches": 1,
                 "deleted_email_deliveries": 1,
                 "deleted_appointments": 1,
@@ -264,4 +270,83 @@ class SemesterCleanupServiceTests(TestCase):
         )
         self.assertTrue(
             Template.objects.filter(pk=self.template.pk).exists()
+        )
+
+
+    def test_cleanup_deletes_email_attachment_files(self):
+        attachment = EmailAttachment.objects.create(
+            delivery=self.email_delivery,
+            source=EmailAttachment.Source.UPLOADED,
+            name="semester-notes.txt",
+            content_type="text/plain",
+        )
+
+        attachment.file.save(
+            "semester-notes.txt",
+            SimpleUploadedFile(
+                "semester-notes.txt",
+                b"Semester attachment",
+                content_type="text/plain",
+            ),
+        )
+
+        storage = attachment.file.storage
+        stored_name = attachment.file.name
+        attachment_id = attachment.pk
+
+        self.assertTrue(storage.exists(stored_name))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            result = delete_semester_data()
+
+        self.assertEqual(
+            result["deleted_email_attachments"],
+            1,
+        )
+
+        self.assertFalse(
+            EmailAttachment.objects.filter(
+                pk=attachment_id
+            ).exists()
+        )
+
+        self.assertFalse(
+            storage.exists(stored_name)
+        )
+
+
+
+    def test_cleanup_deletes_generated_email_documents(self):
+        generated_document = Document.objects.create(
+            file=SimpleUploadedFile(
+                "generated.pdf",
+                b"%PDF-1.4 generated semester PDF",
+                content_type="application/pdf",
+            ),
+            name="Generated PDF",
+        )
+
+        document_id = generated_document.pk
+        storage = generated_document.file.storage
+        stored_name = generated_document.file.name
+
+        EmailAttachment.objects.create(
+            delivery=self.email_delivery,
+            source=EmailAttachment.Source.GENERATED,
+            source_document=generated_document,
+            name="generated.pdf",
+            content_type="application/pdf",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_semester_data()
+
+        self.assertFalse(
+            Document.objects.filter(
+                pk=document_id
+            ).exists()
+        )
+
+        self.assertFalse(
+            storage.exists(stored_name)
         )

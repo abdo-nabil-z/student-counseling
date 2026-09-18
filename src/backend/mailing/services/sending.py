@@ -215,9 +215,51 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
 
 
 
+def cleanup_email_attachment(attachment: EmailAttachment) -> bool:
+    try:
+        if attachment.source == EmailAttachment.Source.GENERATED:
+            _cleanup_generated_document(attachment)
+        else:
+            _cleanup_attachment_file(attachment)
+
+        attachment.cleaned_at = timezone.now()
+        attachment.cleanup_error = ""
+        attachment.save()
+
+        return True
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to clean email attachment after successful send",
+            extra={
+                "delivery_id": attachment.delivery_id,
+                "attachment_id": attachment.pk,
+            },
+        )
+
+        attachment.cleanup_error = str(exc)
+
+        try:
+            attachment.save(update_fields=["cleanup_error"])
+        except Exception:
+            logger.exception(
+                "Failed to record email attachment cleanup error",
+                extra={
+                    "delivery_id": attachment.delivery_id,
+                    "attachment_id": attachment.pk,
+                },
+            )
+
+        return False
+
+
 def cleanup_sent_delivery_attachments(delivery: EmailDelivery) -> None:
     try:
-        attachments = list(delivery.attachments.select_related("source_document").all())
+        attachments = list(
+            delivery.attachments
+            .select_related("source_document")
+            .filter(cleaned_at__isnull=True)
+        )
     except Exception:
         logger.exception(
             "Could not load attachments for post-send cleanup",
@@ -226,34 +268,4 @@ def cleanup_sent_delivery_attachments(delivery: EmailDelivery) -> None:
         return
 
     for attachment in attachments:
-        try:
-            if attachment.source == EmailAttachment.Source.GENERATED:
-                _cleanup_generated_document(attachment)
-            else:
-                _cleanup_attachment_file(attachment)
-
-            attachment.cleaned_at = timezone.now()
-            attachment.cleanup_error = ""
-            attachment.save()
-
-        except Exception as exc:
-            logger.exception(
-                "Failed to clean email attachment after successful send",
-                extra={
-                    "delivery_id": delivery.pk,
-                    "attachment_id": attachment.pk,
-                },
-            )
-
-            attachment.cleanup_error = str(exc)
-
-            try:
-                attachment.save(update_fields=["cleanup_error"])
-            except Exception:
-                logger.exception(
-                    "Failed to record email attachment cleanup error",
-                    extra={
-                        "delivery_id": delivery.pk,
-                        "attachment_id": attachment.pk,
-                    },
-                )
+        cleanup_email_attachment(attachment)
