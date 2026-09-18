@@ -19,5 +19,11 @@ DEFAULT_EMAIL_SUBJECTS = {
     ),
     Purpose.APPOINTMENT_CANCELLATION_MAIL: (
         "Counseling appointment cancelled"
-    )
+    ),
+    Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: (
+        "Request for counseling availability"
+    ),
+    Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: (
+        "Your accepted counseling appointments"
+    ),
 }

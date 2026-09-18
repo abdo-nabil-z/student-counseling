@@ -7,6 +7,11 @@ from mailing.api.views import (
     send_email_batch,
     get_email_batch_status,
     resend_email_delivery,
+    attach_existing_document_to_email,
+    delete_email_attachment,
+    download_email_attachment,
+    upload_email_attachment,
+    generate_email_pdf_attachment
 )
 
 app_name = "mailing_api"
@@ -19,4 +24,9 @@ urlpatterns = [
     path("batches/<int:batch_id>/status/", get_email_batch_status, name="email-batch-status"),
     path("deliveries/<int:delivery_id>/", email_delivery_detail, name="email-delivery-detail"),
     path("deliveries/<int:delivery_id>/resend/", resend_email_delivery, name="resend-email-delivery"),
+    path("deliveries/<int:delivery_id>/attachments/upload/", upload_email_attachment, name="upload-email-attachment"),
+    path("deliveries/<int:delivery_id>/attachments/existing/", attach_existing_document_to_email, name="attach-existing-document"),
+    path("deliveries/<int:delivery_id>/attachments/<int:attachment_id>/", delete_email_attachment, name="delete-email-attachment"),
+    path("deliveries/<int:delivery_id>/attachments/<int:attachment_id>/download/", download_email_attachment, name="download-email-attachment"),
+    path("deliveries/<int:delivery_id>/attachments/generated/", generate_email_pdf_attachment, name="generate-email-pdf-attachment")
 ]

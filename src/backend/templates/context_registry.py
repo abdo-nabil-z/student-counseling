@@ -30,6 +30,59 @@ class TestmailContext(BaseModel):
         return cls(counselor=CounselorContext.from_model(counselor))
 
 
+class CounselorOnlyContext(BaseModel):
+    counselor: CounselorContext
+
+    @classmethod
+    def build(cls, counselor_id: int) -> "CounselorOnlyContext":
+        counselor = Counselor.objects.get(id=counselor_id)
+
+        return cls(counselor=(CounselorContext.from_model(counselor)))
+
+
+class CounselorAppointmentItemContext(BaseModel):
+    student: StudentContext
+    appointment: AppointmentContext
+
+
+class CounselorAppointmentsContext(BaseModel):
+    counselor: CounselorContext
+    appointments: list[CounselorAppointmentItemContext]
+
+    @classmethod
+    def build(cls, counselor_id: int) -> "CounselorAppointmentsContext":
+        counselor = Counselor.objects.get(id=counselor_id)
+
+        appointments = (
+            Appointment.objects
+            .filter(
+                counselor_id=counselor_id,
+                status=Appointment.Status.BOOKED,
+            )
+            .select_related("student")
+            .order_by("start_time", "id")
+        )
+
+        appointment_items = [
+            CounselorAppointmentItemContext(
+                student=StudentContext.from_model(
+                    appointment.student
+                ),
+                appointment=(
+                    AppointmentContext.from_model(
+                        appointment
+                    )
+                ),
+            )
+            for appointment in appointments
+        ]
+
+        return cls(
+            counselor=(CounselorContext.from_model(counselor)),
+            appointments=appointment_items
+        )
+
+
 class StudentAndBlocksContext(BaseModel):
     available_slots: AllAvailableSlotsContext
     student: StudentContext
@@ -100,6 +153,8 @@ PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
     Purpose.APPOINTMENT_CANCELLATION_MAIL: AppointmentStudentCounselorContext,
     Purpose.STUDY_PLAN: StudyPlanContext,
     Purpose.APPOINTMENT_MINUTES: AppointmentMinutesContext,
+    Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorOnlyContext,
+    Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorAppointmentsContext,
 }
 
 

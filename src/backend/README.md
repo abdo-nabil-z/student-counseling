@@ -15,12 +15,16 @@ if you are running from you device make sure the packages are installed
 ```bash
 python -m django version
 ```
+
 then to run the server, run:
+
 ```bash
 python manage.py runserver 8000
 ```
+
 or
 then
+
 ```bash
 python manage.py runserver
 ```
@@ -33,19 +37,26 @@ for the pages:
 ```bash
 http://localhost:8000/counselors/
 ```
+
 and for the api Documentation:
 in Swagger UI:
+
 ```bash
 http://localhost:8000/api/docs/
 ```
+
 in ReDoc
+
 ```bash
 http://localhost:8000/api/redoc/
 ```
+
 To export them to a YAML file for postman:
+
 ```bash
 python manage.py spectacular --color --file schema.yml
 ```
+
 the file schema.yml is created in the backend project
 
 ## API error handling
@@ -58,9 +69,7 @@ API errors raised through Django REST Framework use a consistent JSON structure:
     "code": "validation_error",
     "message": "The submitted data is invalid.",
     "details": {
-      "email": [
-        "Enter a valid email address."
-      ]
+      "email": ["Enter a valid email address."]
     },
     "request_id": "e0d413a5-12dd-44c6-b67f-f2fe80db78ab"
   }
@@ -69,10 +78,10 @@ API errors raised through Django REST Framework use a consistent JSON structure:
 
 ### Error response fields
 
-* `code`: A machine-readable error identifier that the frontend can use when handling specific errors.
-* `message`: A general human-readable description of the error.
-* `details`: Additional information about the error. For validation errors, this normally contains errors grouped by field. It may be `null` when no additional information is available.
-* `request_id`: A unique identifier for the request. Include this value when reporting an unexpected server error so the related backend log entry can be located.
+- `code`: A machine-readable error identifier that the frontend can use when handling specific errors.
+- `message`: A general human-readable description of the error.
+- `details`: Additional information about the error. For validation errors, this normally contains errors grouped by field. It may be `null` when no additional information is available.
+- `request_id`: A unique identifier for the request. Include this value when reporting an unexpected server error so the related backend log entry can be located.
 
 The same request identifier is also returned in the response header:
 
@@ -96,9 +105,7 @@ Response:
     "code": "validation_error",
     "message": "The submitted data is invalid.",
     "details": {
-      "name": [
-        "This field is required."
-      ]
+      "name": ["This field is required."]
     },
     "request_id": "e0d413a5-12dd-44c6-b67f-f2fe80db78ab"
   }
@@ -153,11 +160,10 @@ Internal exception details and stack traces are not returned to the frontend. Th
 
 When reporting a `500` error, provide:
 
-* The `request_id`
-* The endpoint
-* The HTTP method
-* The approximate time of the request
-
+- The `request_id`
+- The endpoint
+- The HTTP method
+- The approximate time of the request
 
 ### File uploads
 
@@ -184,8 +190,10 @@ Templates use [Jinja2](https://jinja.palletsprojects.com/) syntax. Each template
 Before writing a template, fetch the flat variable list for the purpose:
 
 ```
-GET /api/templates/purposes/{purpose}/context-schema/
-```
+
+GET /api/templates/{purpose}/context-schema/
+
+````
 
 Example response for `testmail`:
 
@@ -195,12 +203,12 @@ Example response for `testmail`:
   {"path": "counselor.last_name",  "type": "string"},
   {"path": "counselor.full_name",  "type": "string"},
   {"path": "counselor.department", "type": "string"},
-  {"path": "counselor.availability_blocks",        "type": "array"},
-  {"path": "counselor.availability_blocks[].date",       "type": "date"},
-  {"path": "counselor.availability_blocks[].start_time", "type": "time"},
-  {"path": "counselor.availability_blocks[].end_time",   "type": "time"}
+  {"path": "counselor.slots",        "type": "array"},
+  {"path": "counselor.slots[].date",       "type": "date"},
+  {"path": "counselor.slots[].start_time", "type": "time"},
+  {"path": "counselor.slots[].end_time",   "type": "time"}
 ]
-```
+````
 
 ### Template syntax
 
@@ -228,7 +236,7 @@ Example response for `testmail`:
 
 ### End-to-end example with "testmail"
 
-**1. Create the template** (`PUT /api/templates/create/`):
+**1. Create the template** (`PUT /api/templates/create/`): this doesnt exist anymore
 
 ```json
 {
@@ -240,7 +248,7 @@ Example response for `testmail`:
 
 Note the `id` in the response.
 
-**2. Render a preview** (`POST /api/templates/generate/testmail/?template_id={id}`):
+**2. Render a preview** (`POST /api/templates/generate/testmail/?template_id={id}`): this doesnt exist anymore
 
 ```json
 {
@@ -256,15 +264,14 @@ Response:
 }
 ```
 
-
 ## Email generation and delivery
 
 The backend supports generating personalized emails from the existing template system.
 
 Email generation creates two types of database records:
 
-* `EmailBatch`: represents one bulk email operation for a particular purpose.
-* `EmailDelivery`: represents the personalized email for one selected student.
+- `EmailBatch`: represents one bulk email operation for a particular purpose.
+- `EmailDelivery`: represents one personalized email for a student or counselor recipient.
 
 Generated email deliveries contain snapshots of the recipient, CC addresses, subject, and rendered body. Changing the source template or student information afterward does not modify already generated emails.
 
@@ -272,10 +279,10 @@ Generated email deliveries contain snapshots of the recipient, CC addresses, sub
 
 Email deliveries use the following statuses:
 
-* `draft`: generated for preview and editing.
-* `queued`: ready for the background email worker.
-* `sent`: successfully accepted by the configured email backend.
-* `failed`: sending failed and automatic retry has been exhausted, or the failure was considered permanent.
+- `draft`: generated for preview and editing.
+- `queued`: ready for the background email worker.
+- `sent`: successfully accepted by the configured email backend.
+- `failed`: sending failed and automatic retry has been exhausted, or the failure was considered permanent.
 
 Preview mode creates `draft` deliveries. The subject and body may be edited before the batch is queued.
 
@@ -354,8 +361,25 @@ Polling every few seconds while the relevant page is open is sufficient. WebSock
 
 ### Semester cleanup
 
-Email batches and email deliveries are semester-specific data.
+Email batches, deliveries, and email attachment snapshots are semester-specific data.
 
-Semester cleanup therefore removes all `EmailBatch` and `EmailDelivery` records together with students, appointments, counselor availability slots, and their semester-specific documents.
+Semester cleanup removes:
 
-Reusable email templates are persistent system data and are not deleted during semester cleanup.
+- email batches and deliveries
+- temporary uploaded email attachments
+- snapshots of existing documents attached to emails
+- generated PDF documents owned by email attachments
+- appointments
+- students
+- counselor availability slots
+- student and appointment documents
+
+Persistent counselors and reusable templates are preserved.
+
+Original student or appointment documents referenced by an email attachment are never deleted merely because the email attachment is removed. They are deleted only according to their normal student/appointment lifecycle.
+
+If temporary attachment cleanup fails after an email has already been sent, the email remains `sent` and the attachment stores the cleanup error. Cleanup can be retried with:
+
+```bash
+python manage.py cleanup_email_attachments
+```

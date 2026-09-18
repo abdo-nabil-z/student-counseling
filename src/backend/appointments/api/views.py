@@ -106,20 +106,11 @@ def detail_update_appointment(request, appointment_id):
 
 
 @extend_schema(
-    request={
-        "multipart/form-data": {
-            "type": "object",
-            "properties": {
-                "file": {"type": "string", "format": "binary", "description": "PDF file to upload"},
-                "name": {"type": "string", "description": "Display name; defaults to filename"},
-            },
-            "required": ["file"],
-        }
-    },
+    request=DocumentUploadSerializer,
     responses={
         201: DocumentInfoSerializer,
         400: APIErrorResponseSerializer,
-        404: APIErrorResponseSerializer
+        404: APIErrorResponseSerializer,
     },
     description="Upload the minutes file for an appointment. Replaces any existing one.",
     tags=["Appointments"],

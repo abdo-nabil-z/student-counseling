@@ -3,7 +3,7 @@ from mailing.models import EmailDelivery
 def build_email_batch_status(batch)->dict:
     deliveries = list(
         batch.deliveries
-        .select_related("student")
+        .select_related("student", "counselor")
         .all()
     )
 

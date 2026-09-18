@@ -1,89 +1,223 @@
+from django.urls import reverse
 from rest_framework import serializers
 
-from mailing.models import EmailBatch, EmailDelivery
+from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
+from mailing.purpose_config import EMAIL_PURPOSE_CHOICES, EMAIL_PURPOSE_CONFIG
+from mailing.attachment_options import GENERATED_PDF_PURPOSE_CHOICES, EXISTING_DOCUMENT_TYPE_CHOICES
 from students.models import Student
 from templates.models import Purpose
+from counselors.models import Counselor
 
-
-
-EMAIL_PURPOSE_CHOICES = [
-    (
-        Purpose.STUDENT_INVITATION_MAIL,
-        Purpose.STUDENT_INVITATION_MAIL.label,
-    ),
-    (
-        Purpose.STUDENT_REMINDER_MAIL,
-        Purpose.STUDENT_REMINDER_MAIL.label,
-    ),
-    (
-        Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL,
-        Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL.label,
-    ),
-    (
-        Purpose.APPOINTMENT_INVITATION_MAIL,
-        Purpose.APPOINTMENT_INVITATION_MAIL.label,
-    ),
-    (
-        Purpose.COUNSELOR_PREPARATION_INSTRUCTION_MAIL,
-        Purpose.COUNSELOR_PREPARATION_INSTRUCTION_MAIL.label,
-    ),
-    (
-        Purpose.APPOINTMENT_CANCELLATION_MAIL,
-        Purpose.APPOINTMENT_CANCELLATION_MAIL.label,
-    ),
-]
 
 
 class EmailBatchCreateSerializer(serializers.Serializer):
     purpose = serializers.ChoiceField(choices=EMAIL_PURPOSE_CHOICES)
 
-    student_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+    target_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False,
+                                        help_text=(
+                                            "IDs of the entities selected for this email purpose. "
+                                            "Student purposes expect student IDs; "
+                                            "counselor purposes expect counselor IDs."
+                                        ),)
 
-    send_immediately = serializers.BooleanField(default=False, help_text=("If false, generated emails are drafts. ""If true, they are queued for sending."))
+    send_immediately = serializers.BooleanField(default=False, help_text=("If false, generated emails are drafts. If true, they are queued for sending."))
+
+    generated_pdf_purposes = serializers.ListField(
+        child=serializers.ChoiceField(choices=GENERATED_PDF_PURPOSE_CHOICES),
+        required=False,
+        default=list,
+    )
+
+    existing_document_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=EXISTING_DOCUMENT_TYPE_CHOICES),
+        required=False,
+        default=list,
+    )
+
+    uploaded_files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        default=list,
+    )
 
 
-    def validate_student_ids(self, value):
+    def validate_target_ids(self, value):
         if len(value) != len(set(value)):
-            raise serializers.ValidationError("Duplicate student IDs are not allowed.")
+            raise serializers.ValidationError("Duplicate target IDs are not allowed.")
+
+        return value
+
+    def validate_generated_pdf_purposes(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate generated PDF purposes are not allowed.")
+        return value
+
+    def validate_existing_document_types(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate existing document types are not allowed.")
+        return value
+
+    
+    def validate(self, attrs):
+        purpose = attrs["purpose"]
+        target_ids = attrs["target_ids"]
+
+        config = EMAIL_PURPOSE_CONFIG[purpose]
+
+        if config.target_type == "student":
+            model = Student
+            target_label = "students"
+        else:
+            model = Counselor
+            target_label="counselor"
 
         existing_ids = set(
-            Student.objects.filter(pk__in=value).values_list("pk", flat=True)
+            model.objects.filter(pk__in=target_ids).values_list("pk", flat=True)
         )
 
         missing_ids = [
-            student_id
-            for student_id in value
-            if student_id not in existing_ids
+            target_id
+            for target_id in target_ids
+            if target_id not in existing_ids
         ]
 
         if missing_ids:
             raise serializers.ValidationError(
-                (
-                    "The Following students do no exists: "
-                    + ", ".join(str(student_id) for student_id in missing_ids)
-                )
+                {
+                    "target_ids": [
+                        (
+                            f"The following {target_label} do not exist: "
+                            + ", ".join(
+                                str(target_id)
+                                for target_id
+                                in missing_ids
+                            )
+                        )
+                    ]
+                }
             )
 
-        return value
+        return attrs
+
+
+class EmailAttachmentSerializer(serializers.ModelSerializer):
+    source_document_id = serializers.IntegerField(read_only=True, allow_null=True)
+    document_id = serializers.SerializerMethodField()
+    download_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmailAttachment
+        fields = [
+            "id",
+            "source",
+            "source_document_id",
+            "document_id",
+            "name",
+            "content_type",
+            "download_url",
+            "created_at",
+        ]
+
+    def get_document_id(self, obj):
+        if obj.source == EmailAttachment.Source.GENERATED:
+            return obj.source_document_id
+        return None
+
+    def get_download_url(self, obj):
+        if obj.source == EmailAttachment.Source.GENERATED:
+            return None
+
+        return reverse(
+            "mailing_api:download-email-attachment",
+            args=[obj.delivery_id, obj.pk],
+        )
+
+
+class EmailAttachmentUploadSerializer(
+    serializers.Serializer
+):
+    file = serializers.FileField()
+
+    name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=255,
+        help_text=(
+            "Display name. Defaults to the "
+            "uploaded filename."
+        ),
+    )
+
+
+class ExistingEmailAttachmentSerializer(
+    serializers.Serializer
+):
+    document_id = serializers.IntegerField(
+        min_value=1,
+    )
 
 
 class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
-    student_id = serializers.IntegerField(read_only=True)
-    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    student_id = serializers.IntegerField(read_only=True, allow_null=True)
+    student_name = serializers.SerializerMethodField()
+
+    counselor_id = serializers.IntegerField(read_only=True, allow_null=True)
+    counselor_name = serializers.SerializerMethodField()
+
+    attachments = EmailAttachmentSerializer(
+    many=True,
+    read_only=True,
+)
+
+    def get_student_name(self, obj):
+        if obj.student is None:
+            return None
+
+        return obj.student.full_name
+
+    def get_counselor_name(self, obj):
+        if obj.counselor is None:
+            return None
+
+        return obj.counselor.full_name
 
     class Meta:
         model = EmailDelivery
+
         fields = [
             "id",
+            "recipient_type",
             "student_id",
             "student_name",
+            "counselor_id",
+            "counselor_name",
             "recipient_email",
             "cc",
             "subject",
             "body",
             "status",
-            "created_at"
+            "attachments",
+            "created_at",
         ]
+
+
+class GeneratedEmailAttachmentSerializer(serializers.Serializer):
+    purpose = serializers.ChoiceField(choices=[
+        (
+            Purpose.STUDY_PLAN,
+            Purpose.STUDY_PLAN.label,
+        ),
+        (
+            Purpose.APPOINTMENT_MINUTES,
+            Purpose.APPOINTMENT_MINUTES.label,
+        )
+    ])
+
+    name = serializers.CharField(required=False, allow_blank=True, max_length=255, help_text="Optional PDF name. The .pdf extension is added automatically.")
+
+
+class GeneratedEmailAttachmentResponseSerializer(serializers.Serializer):
+    document_id = serializers.IntegerField()
 
 
 class EmailDeliveryUpdateSerializer(serializers.Serializer):
@@ -134,19 +268,36 @@ class EmailBatchDetailSerializer(serializers.ModelSerializer):
 
 
 class EmailDeliveryStatusSerializer(serializers.ModelSerializer):
-    student_id = serializers.IntegerField(read_only=True)
+    student_id = serializers.IntegerField(read_only=True, allow_null=True)
 
-    student_name = serializers.CharField(
-        source="student.full_name",
-        read_only=True
-    )
+    counselor_id = serializers.IntegerField(read_only=True, allow_null=True)
+
+    student_name = serializers.SerializerMethodField()
+
+    counselor_name = serializers.SerializerMethodField()
+
+    def get_student_name(self, obj):
+        if obj.student is None:
+            return None
+
+        return obj.student.full_name
+
+    def get_counselor_name( self, obj):
+        if obj.counselor is None:
+            return None
+
+        return obj.counselor.full_name
 
     class Meta:
         model = EmailDelivery
+
         fields = [
             "id",
+            "recipient_type",
             "student_id",
             "student_name",
+            "counselor_id",
+            "counselor_name",
             "recipient_email",
             "status",
             "attempt_count",

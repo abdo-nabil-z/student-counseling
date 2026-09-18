@@ -10,19 +10,25 @@ class SlotContext(BaseModel):
 
 
 class CounselorContext(BaseModel):
+    title: str
     first_name: str
     last_name: str
     full_name: str
     department: str
+    office_address: str
+    email: str
     slots: list[SlotContext]  # slots that have no booked/pending appointment
 
     @classmethod
     def from_model(cls, counselor: Counselor) -> "CounselorContext":
         return cls(
+            title=counselor.title,
             first_name=counselor.first_name,
             last_name=counselor.last_name,
             full_name=counselor.full_name,
             department=counselor.chair,
+            office_address=counselor.office_address,
+            email=counselor.email,
             slots=[
                 SlotContext(date=s.date, start_time=s.start_time, end_time=s.end_time)
                 for s in counselor.slots.exclude(
