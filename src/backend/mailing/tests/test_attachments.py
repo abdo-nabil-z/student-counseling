@@ -1043,3 +1043,84 @@ class EmailAttachmentTests(APITestCase):
                 pk=document_id
             ).exists()
         )
+
+
+    def test_batch_can_still_be_created_without_attachments(self):
+        response = self.client.post(
+            reverse("mailing_api:create-email-batch"),
+            {
+                "purpose": Purpose.STUDENT_INVITATION_MAIL,
+                "target_ids": [self.student.pk],
+                "send_immediately": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["deliveries"][0]["attachments"], [])
+
+
+    def test_batch_creation_can_generate_pdf_attachment(self):
+        response = self.client.post(
+            reverse("mailing_api:create-email-batch"),
+            {
+                "purpose": Purpose.STUDENT_INVITATION_MAIL,
+                "target_ids": [self.student.pk],
+                "send_immediately": False,
+                "generated_pdf_purposes": [Purpose.STUDY_PLAN],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        attachment = response.data["deliveries"][0]["attachments"][0]
+
+        self.assertEqual(attachment["source"], EmailAttachment.Source.GENERATED)
+        self.assertIsNotNone(attachment["document_id"])
+        self.assertTrue(Document.objects.filter(pk=attachment["document_id"]).exists())
+
+
+    def test_batch_creation_supports_uploaded_and_generated_attachments(self):
+        response = self.client.post(
+            reverse("mailing_api:create-email-batch"),
+            {
+                "purpose": Purpose.STUDENT_INVITATION_MAIL,
+                "target_ids": [self.student.pk],
+                "send_immediately": False,
+                "generated_pdf_purposes": [Purpose.STUDY_PLAN],
+                "uploaded_files": [
+                    SimpleUploadedFile("notes.txt", b"hello", content_type="text/plain")
+                ],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        attachments = response.data["deliveries"][0]["attachments"]
+        self.assertEqual(len(attachments), 2)
+        self.assertEqual({item["source"] for item in attachments}, {
+            EmailAttachment.Source.GENERATED,
+            EmailAttachment.Source.UPLOADED,
+        })
+
+
+    def test_batch_creation_can_attach_initial_study_plan(self):
+        response = self.client.post(
+            reverse("mailing_api:create-email-batch"),
+            {
+                "purpose": Purpose.STUDENT_INVITATION_MAIL,
+                "target_ids": [self.student.pk],
+                "send_immediately": False,
+                "existing_document_types": ["initial_study_plan"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["deliveries"][0]["attachments"][0]["source"],
+            EmailAttachment.Source.EXISTING,
+        )
+        

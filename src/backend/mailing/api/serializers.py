@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
 from mailing.purpose_config import EMAIL_PURPOSE_CHOICES, EMAIL_PURPOSE_CONFIG
+from mailing.attachment_options import GENERATED_PDF_PURPOSE_CHOICES, EXISTING_DOCUMENT_TYPE_CHOICES
 from students.models import Student
 from templates.models import Purpose
 from counselors.models import Counselor
@@ -21,11 +22,39 @@ class EmailBatchCreateSerializer(serializers.Serializer):
 
     send_immediately = serializers.BooleanField(default=False, help_text=("If false, generated emails are drafts. If true, they are queued for sending."))
 
+    generated_pdf_purposes = serializers.ListField(
+        child=serializers.ChoiceField(choices=GENERATED_PDF_PURPOSE_CHOICES),
+        required=False,
+        default=list,
+    )
+
+    existing_document_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=EXISTING_DOCUMENT_TYPE_CHOICES),
+        required=False,
+        default=list,
+    )
+
+    uploaded_files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        default=list,
+    )
+
 
     def validate_target_ids(self, value):
         if len(value) != len(set(value)):
             raise serializers.ValidationError("Duplicate target IDs are not allowed.")
 
+        return value
+
+    def validate_generated_pdf_purposes(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate generated PDF purposes are not allowed.")
+        return value
+
+    def validate_existing_document_types(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate existing document types are not allowed.")
         return value
 
     
@@ -72,22 +101,12 @@ class EmailBatchCreateSerializer(serializers.Serializer):
 
 
 class EmailAttachmentSerializer(serializers.ModelSerializer):
-    source_document_id = (
-        serializers.IntegerField(
-            read_only=True,
-            allow_null=True,
-        )
-    )
-
-    download_url = (
-        serializers.SerializerMethodField()
-    )
-
+    source_document_id = serializers.IntegerField(read_only=True, allow_null=True)
     document_id = serializers.SerializerMethodField()
+    download_url = serializers.SerializerMethodField()
 
     class Meta:
         model = EmailAttachment
-
         fields = [
             "id",
             "source",
@@ -99,28 +118,19 @@ class EmailAttachmentSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def get_download_url(
-        self,
-        obj,
-    ):
+    def get_document_id(self, obj):
+        if obj.source == EmailAttachment.Source.GENERATED:
+            return obj.source_document_id
+        return None
+
+    def get_download_url(self, obj):
         if obj.source == EmailAttachment.Source.GENERATED:
             return None
+
         return reverse(
-            (
-                "mailing_api:"
-                "download-email-attachment"
-            ),
-            args=[
-                obj.delivery_id,
-                obj.pk,
-            ],
+            "mailing_api:download-email-attachment",
+            args=[obj.delivery_id, obj.pk],
         )
-
-    def get_document_id(self, obj):
-        if(obj.source == EmailAttachment.Source.GENERATED):
-            return obj.source_document_id
-
-        return None
 
 
 class EmailAttachmentUploadSerializer(

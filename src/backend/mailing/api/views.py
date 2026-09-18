@@ -3,7 +3,8 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiTypes
 from rest_framework import status
-from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 
@@ -23,7 +24,7 @@ from mailing.api.serializers import (
 )
 from mailing.api_exceptions import EmailDeliveryNotEditable
 from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
-from mailing.services.generation import generate_email_batch
+from mailing.services.batch_creation import create_email_batch_with_attachments
 from mailing.services.queueing import queue_email_batch
 from mailing.services.resending import requeue_failed_delivery
 from mailing.services.status import build_email_batch_status
@@ -64,28 +65,35 @@ def _ensure_delivery_editable(
         409: APIErrorResponseSerializer,
         422: APIErrorResponseSerializer,
     },
-    description=(
-        "Generate a personalized email batch for the selected students or counselors."
-        " The target type is determined by the email purpose."
-        " Preview mode creates draft deliveries; automatic mode creates queued deliveries."
-    ),
+    description="Generate an email batch with optional existing, uploaded, or generated attachments.",
     tags=["Mailing"],
 )
 @api_view(["POST"])
+@parser_classes([JSONParser, MultiPartParser, FormParser])
 def create_email_batch(request):
     serializer = EmailBatchCreateSerializer(data=request.data)
-
     serializer.is_valid(raise_exception=True)
 
-    batch = generate_email_batch(
-        purpose= serializer.validated_data["purpose"],
-        target_ids= serializer.validated_data["target_ids"],
-        send_immediately= serializer.validated_data["send_immediately"],
+    batch = create_email_batch_with_attachments(
+        purpose=serializer.validated_data["purpose"],
+        target_ids=serializer.validated_data["target_ids"],
+        send_immediately=serializer.validated_data["send_immediately"],
+        generated_pdf_purposes=serializer.validated_data["generated_pdf_purposes"],
+        existing_document_types=serializer.validated_data["existing_document_types"],
+        uploaded_files=serializer.validated_data["uploaded_files"],
     )
 
-    response_serializer = (EmailBatchDetailSerializer(batch))
+    batch = EmailBatch.objects.prefetch_related(
+        "deliveries__student",
+        "deliveries__counselor",
+        "deliveries__attachments",
+    ).get(pk=batch.pk)
 
-    return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+    return Response(
+        EmailBatchDetailSerializer(batch).data,
+        status=status.HTTP_201_CREATED,
+    )
+
 
 
 @extend_schema(

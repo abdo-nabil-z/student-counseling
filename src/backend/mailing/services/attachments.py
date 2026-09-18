@@ -406,3 +406,42 @@ def create_generated_pdf_attachment(
         raise
 
     return attachment
+
+
+
+def get_existing_document_for_delivery(delivery: EmailDelivery, document_type: str) -> Document:
+    if delivery.student_id is None:
+        raise ValidationError({
+            "existing_document_types": [
+                "This attachment requires an email delivery with a student context."
+            ]
+        })
+
+    student = Student.objects.select_related(
+        "initial_study_plan",
+        "final_study_plan",
+    ).get(pk=delivery.student_id)
+
+    if document_type == "initial_study_plan":
+        document = student.initial_study_plan
+
+    elif document_type == "final_study_plan":
+        document = student.final_study_plan
+
+    elif document_type == "appointment_minutes":
+        appointment = Appointment.objects.select_related("minutes").filter(student_id=student.pk).first()
+        document = appointment.minutes if appointment else None
+
+    else:
+        raise ValidationError({
+            "existing_document_types": [f"Unsupported document type '{document_type}'."]
+        })
+
+    if document is None:
+        raise ValidationError({
+            "existing_document_types": [
+                f"Student {student.pk} does not have '{document_type}' available."
+            ]
+        })
+
+    return document
