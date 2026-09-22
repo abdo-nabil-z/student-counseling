@@ -1137,4 +1137,57 @@ class EmailAttachmentTests(APITestCase):
             response.data["deliveries"][0]["attachments"][0]["source"],
             EmailAttachment.Source.EXISTING,
         )
-        
+
+
+    def test_batch_creation_can_attach_multiple_generated_pdf_templates(self):
+        Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            start_time=timezone.now(),
+            duration_minutes=30,
+        )
+
+        response = self.client.post(
+            reverse("mailing_api:create-email-batch"),
+            {
+                "purpose": Purpose.STUDENT_INVITATION_MAIL,
+                "target_ids": [self.student.pk],
+                "send_immediately": False,
+                "generated_pdf_purposes": [
+                    Purpose.STUDY_PLAN,
+                    Purpose.APPOINTMENT_MINUTES,
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        attachments = response.data["deliveries"][0]["attachments"]
+
+        self.assertEqual(len(attachments), 2)
+
+        self.assertTrue(
+            all(
+                attachment["source"] == EmailAttachment.Source.GENERATED
+                for attachment in attachments
+            )
+        )
+
+        document_ids = [attachment["document_id"] for attachment in attachments]
+
+        self.assertEqual(len(set(document_ids)), 2)
+
+        for document_id in document_ids:
+            self.assertTrue(Document.objects.filter(pk=document_id).exists())
+
+        attachment_names = {attachment["name"] for attachment in attachments}
+
+        self.assertEqual(
+            attachment_names,
+            {
+                f"study-plan-{self.student.pk}.pdf",
+                f"appointment-minutes-{self.student.pk}.pdf",
+            },
+        )
+            
