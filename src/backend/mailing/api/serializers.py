@@ -26,6 +26,7 @@ class EmailBatchCreateSerializer(serializers.Serializer):
         child=serializers.ChoiceField(choices=GENERATED_PDF_PURPOSE_CHOICES),
         required=False,
         default=list,
+        help_text="Optional PDF template purposes to generate and attach to each email. Multiple templates may be selected."
     )
 
     existing_document_types = serializers.ListField(
