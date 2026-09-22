@@ -295,3 +295,71 @@ class EmailPreviewAPITests(APITestCase):
             response.status_code,
             status.HTTP_404_NOT_FOUND,
         )
+
+
+    def test_batch_list_returns_saved_batches_newest_first(self):
+        newer_batch = EmailBatch.objects.create(
+            purpose=Purpose.STUDENT_REMINDER_MAIL
+        )
+
+        EmailDelivery.objects.create(
+            batch=newer_batch,
+            recipient_type=EmailDelivery.RecipientType.STUDENT,
+            student=self.student_one,
+            recipient_email=self.student_one.email,
+            subject="Newer subject",
+            body="Newer body",
+            status=EmailDelivery.Status.QUEUED,
+        )
+
+        url = reverse("mailing_api:create-email-batch")
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+        self.assertEqual(response.data[0]["id"], newer_batch.pk)
+        self.assertEqual(response.data[1]["id"], self.batch.pk)
+
+
+    def test_batch_list_contains_delivery_information(self):
+        self.delivery_one.last_error = "Previous SMTP failure"
+        self.delivery_one.save(update_fields=["last_error"])
+
+        url = reverse("mailing_api:create-email-batch")
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        batch = response.data[0]
+        delivery = batch["deliveries"][0]
+
+        self.assertEqual(batch["recipient_type"], "student")
+
+        self.assertEqual(delivery["student"], self.student_one.pk)
+        self.assertIsNone(delivery["counselor"])
+
+        self.assertEqual(delivery["recipient_email"], self.student_one.email)
+        self.assertEqual(delivery["recipient_name"], self.student_one.full_name)
+
+        self.assertEqual(delivery["subject"], "Original subject")
+        self.assertEqual(delivery["body"], "Original body for Anna")
+        self.assertEqual(delivery["status"], EmailDelivery.Status.DRAFT)
+
+        self.assertEqual(
+            delivery["error_message"],
+            "Previous SMTP failure",
+        )
+
+
+    def test_batch_list_does_not_create_batches(self):
+        count_before = EmailBatch.objects.count()
+
+        response = self.client.get(
+            reverse("mailing_api:create-email-batch")
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(EmailBatch.objects.count(), count_before)

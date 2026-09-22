@@ -202,6 +202,66 @@ class EmailDeliveryPreviewSerializer(serializers.ModelSerializer):
         ]
 
 
+class EmailDeliveryBatchListSerializer(serializers.ModelSerializer):
+    student = serializers.IntegerField(source="student_id", read_only=True, allow_null=True)
+    counselor = serializers.IntegerField(source="counselor_id", read_only=True, allow_null=True)
+    recipient_name = serializers.SerializerMethodField()
+    error_message = serializers.CharField(source="last_error", read_only=True)
+    attachments = EmailAttachmentSerializer(many=True, read_only=True)
+
+    def get_recipient_name(self, obj):
+        if obj.recipient_type == EmailDelivery.RecipientType.STUDENT and obj.student:
+            return obj.student.full_name
+
+        if obj.recipient_type == EmailDelivery.RecipientType.COUNSELOR and obj.counselor:
+            return obj.counselor.full_name
+
+        return obj.recipient_email
+
+    class Meta:
+        model = EmailDelivery
+        fields = [
+            "id",
+            "recipient_type",
+            "student",
+            "counselor",
+            "recipient_email",
+            "recipient_name",
+            "subject",
+            "body",
+            "status",
+            "error_message",
+            "attempt_count",
+            "sent_at",
+            "created_at",
+            "updated_at",
+            "attachments",
+        ]
+
+
+class EmailBatchListSerializer(serializers.ModelSerializer):
+    recipient_type = serializers.SerializerMethodField()
+    deliveries = EmailDeliveryBatchListSerializer(many=True, read_only=True)
+
+    def get_recipient_type(self, obj):
+        delivery = next(iter(obj.deliveries.all()), None)
+
+        if delivery is None:
+            return None
+
+        return delivery.recipient_type
+
+    class Meta:
+        model = EmailBatch
+        fields = [
+            "id",
+            "purpose",
+            "recipient_type",
+            "created_at",
+            "deliveries",
+        ]
+
+
 class GeneratedEmailAttachmentSerializer(serializers.Serializer):
     purpose = serializers.ChoiceField(choices=[
         (
