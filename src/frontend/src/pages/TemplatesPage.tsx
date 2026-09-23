@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Autocomplete, TextField } from "@mui/material";
 import api from "../api/client";
 import Modal from "../components/common/Model";
+
+import type { Appointment } from "../types/appointment";
+import type { Counselor } from "../types/counselor";
+import type { Student } from "../types/student";
 import type {
   ContextVariable,
   Purpose,
@@ -50,6 +55,16 @@ const PURPOSE_META: Record<Purpose, PurposeMeta> = {
     category: "Email",
     inputKind: "student_counselor",
   },
+  counselor_availability_request: {
+    label: "Availability Request (Counsellor)",
+    category: "Email",
+    inputKind: "counselor",
+  },
+  counselor_appointments_summary: {
+    label: "Accepted Appointments Summary (Counsellor)",
+    category: "Email",
+    inputKind: "counselor",
+  },
   study_plan: {
     label: "Study Plan",
     category: "Document",
@@ -67,6 +82,46 @@ const PURPOSE_ORDER = Object.keys(PURPOSE_META) as Purpose[];
 function formatDate(iso: string) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString();
+}
+
+async function getApiErrorMessage(
+  error: unknown,
+  fallback: string,
+): Promise<string> {
+  let data = (
+    error as {
+      response?: {
+        data?: unknown;
+      };
+    }
+  ).response?.data;
+
+  // PDF requests return errors as Blob objects.
+  if (data instanceof Blob) {
+    try {
+      data = JSON.parse(await data.text()) as RenderError;
+    } catch {
+      return fallback;
+    }
+  }
+
+  const apiError = (data as RenderError | undefined)?.error;
+
+  if (!apiError) {
+    return fallback;
+  }
+
+  const details = apiError.details;
+
+  if (details?.message) {
+    return (
+      `${apiError.message} ${details.message}` +
+      (details.line ? ` (line ${details.line})` : "") +
+      (details.variable ? ` [variable: ${details.variable}]` : "")
+    );
+  }
+
+  return apiError.message || fallback;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +224,7 @@ function TemplateEditorModal({
 }: TemplateEditorModalProps) {
   const meta = PURPOSE_META[purpose];
   const [content, setContent] = useState(initialContent);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -187,41 +243,71 @@ function TemplateEditorModal({
       .finally(() => setVariablesLoading(false));
   }, [purpose]);
 
-  const handleSave = () => {
+  async function handleSave() {
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
-    api
-      .put(`/templates/${purpose}/update/`, { content })
-      .then(() => {
-        setSaveSuccess(true);
-        onSaved();
-      })
-      .catch((err) => {
-        const message =
-          err?.response?.data?.error ??
-          err?.response?.data?.content?.[0] ??
-          "Could not save template.";
-        setSaveError(String(message));
-      })
-      .finally(() => setSaving(false));
-  };
 
-  const copyDirective = (directive: string) => {
-    navigator.clipboard?.writeText(directive).catch(() => {
-      /* clipboard not available, ignore */
+    try {
+      await api.put(`/templates/${purpose}/update/`, content, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+        },
+      });
+
+      setSaveSuccess(true);
+      onSaved();
+    } catch (error: unknown) {
+      setSaveError(
+        await getApiErrorMessage(error, "Could not save the template."),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function insertDirective(directive: string) {
+    const textarea = textareaRef.current;
+
+    const start = textarea?.selectionStart ?? content.length;
+
+    const end = textarea?.selectionEnd ?? content.length;
+
+    const updatedContent =
+      content.slice(0, start) + directive + content.slice(end);
+
+    setContent(updatedContent);
+    setSaveSuccess(false);
+
+    const newCursorPosition = start + directive.length;
+
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(newCursorPosition, newCursorPosition);
     });
-  };
+  }
 
   return (
-    <Modal title={`Edit Template — ${meta.label}`} onClose={onClose}>
+    <Modal
+      title={`Edit Template — ${meta.label}`}
+      onClose={onClose}
+      width="min(1100px, 95vw)"
+      maxHeight="92vh"
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <label>Content</label>
         <textarea
+          ref={textareaRef}
           rows={14}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
-          style={{ fontFamily: "monospace", width: "100%" }}
+          onChange={(event) => {
+            setContent(event.target.value);
+            setSaveSuccess(false);
+          }}
+          style={{
+            fontFamily: "monospace",
+            width: "100%",
+          }}
         />
 
         <div>
@@ -235,58 +321,85 @@ function TemplateEditorModal({
             style={{
               border: "1px solid #ddd",
               borderRadius: 6,
-              padding: "0.75rem",
-              maxHeight: 220,
-              overflow: "auto",
+              padding: "0.5rem",
+              maxHeight: 230,
+              overflowY: "auto",
             }}
           >
-            {variablesLoading && <p>Loading variables…</p>}
-            {!variablesLoading && variables.length === 0 && (
-              <p>No variables available for this purpose.</p>
+            {variablesLoading && (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.85rem",
+                }}
+              >
+                Loading variables…
+              </p>
             )}
-            {!variablesLoading &&
-              variables.map((v) => (
-                <div
-                  key={v.path}
-                  style={{
-                    marginBottom: "0.5rem",
-                    paddingBottom: "0.5rem",
-                    borderBottom: "1px dashed #eee",
-                  }}
-                >
-                  <div>
-                    <code>{v.path}</code>{" "}
-                    <span style={{ color: "#888" }}>({v.type})</span>
-                  </div>
-                  <div style={{ fontSize: "0.85em", color: "#555" }}>
-                    {v.description}
-                  </div>
+
+            {!variablesLoading && variables.length === 0 && (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.85rem",
+                }}
+              >
+                No variables available for this template.
+              </p>
+            )}
+
+            {!variablesLoading && variables.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                  gap: "0.35rem",
+                }}
+              >
+                {variables.map((variable) => (
                   <div
+                    key={variable.path}
                     style={{
                       display: "flex",
-                      gap: "0.5rem",
                       alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
+                      minWidth: 0,
+                      padding: "0.3rem 0.4rem",
+                      background: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 5,
                     }}
                   >
-                    <pre
+                    <code
                       style={{
-                        background: "#f5f5f5",
-                        padding: "2px 6px",
-                        margin: 0,
-                        whiteSpace: "pre-wrap",
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        fontSize: "0.78rem",
                       }}
                     >
-                      {v.directive}
-                    </pre>
+                      {variable.path}
+                    </code>
+
                     <button
                       type="button"
-                      onClick={() => copyDirective(v.directive)}
+                      onClick={() => insertDirective(variable.directive)}
+                      style={{
+                        flexShrink: 0,
+                        margin: 0,
+                        padding: "4px 7px",
+                        fontSize: "0.75rem",
+                        borderRadius: 4,
+                      }}
                     >
-                      Copy
+                      {variable.type === "array" ? "Insert loop" : "Insert"}
                     </button>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -314,109 +427,299 @@ function TemplateEditorModal({
 
 function TemplatePreview({ purpose }: { purpose: Purpose }) {
   const meta = PURPOSE_META[purpose];
-  const [counselorId, setCounselorId] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const isDocument = meta.category === "Document";
+  const [students, setStudents] = useState<Student[]>([]);
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  const [selectedCounselor, setSelectedCounselor] = useState<Counselor | null>(
+    null,
+  );
+
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
+
+  const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
   const [rendered, setRendered] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
-  const needsCounselor =
-    meta.inputKind === "counselor" || meta.inputKind === "student_counselor";
-  const needsStudent =
-    meta.inputKind === "student" || meta.inputKind === "student_counselor";
+  useEffect(() => {
+    return () => {
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+      }
+    };
+  }, [pdfPreviewUrl]);
 
-  const buildPayload = (): Record<string, number> => {
-    const payload: Record<string, number> = {};
-    if (needsCounselor) payload.counselor_id = Number(counselorId);
-    if (needsStudent) payload.student_id = Number(studentId);
-    return payload;
-  };
+  useEffect(() => {
+    Promise.all([
+      api.get<Student[]>("/students/"),
+      api.get<Counselor[]>("/counselors/"),
+      api.get<Appointment[]>("/appointments/"),
+    ])
+      .then(([studentsResponse, counselorsResponse, appointmentsResponse]) => {
+        setStudents(studentsResponse.data);
+        setCounselors(counselorsResponse.data);
+        setAppointments(appointmentsResponse.data);
+      })
+      .catch(() => {
+        setOptionsError(
+          "Could not load students, counsellors, or appointments.",
+        );
+      })
+      .finally(() => setOptionsLoading(false));
+  }, []);
+
+  function studentIdOf(value: number | Student): number {
+    return typeof value === "number" ? value : value.id;
+  }
+
+  function counselorIdOf(value: number | Counselor): number {
+    return typeof value === "number" ? value : value.id;
+  }
+
+  function studentName(value: number | Student): string {
+    if (typeof value === "object") {
+      return `${value.first_name} ${value.last_name}`;
+    }
+
+    const student = students.find((item) => item.id === value);
+
+    return student
+      ? `${student.first_name} ${student.last_name}`
+      : `Student #${value}`;
+  }
+
+  function counselorName(value: number | Counselor): string {
+    if (typeof value === "object") {
+      return `${value.title} ${value.first_name} ${value.last_name}`;
+    }
+
+    const counselor = counselors.find((item) => item.id === value);
+
+    return counselor
+      ? `${counselor.title} ${counselor.first_name} ${counselor.last_name}`
+      : `Counsellor #${value}`;
+  }
+
+  function buildPayload(): Record<string, number> | null {
+    if (meta.inputKind === "counselor") {
+      if (!selectedCounselor) return null;
+
+      return {
+        counselor_id: selectedCounselor.id,
+      };
+    }
+
+    if (meta.inputKind === "student") {
+      if (!selectedStudent) return null;
+
+      return {
+        student_id: selectedStudent.id,
+      };
+    }
+
+    if (!selectedAppointment) return null;
+
+    return {
+      appointment_id: selectedAppointment.id,
+      student_id: studentIdOf(selectedAppointment.student),
+      counselor_id: counselorIdOf(selectedAppointment.counselor),
+    };
+  }
 
   const canRender =
-    (!needsCounselor || counselorId.trim() !== "") &&
-    (!needsStudent || studentId.trim() !== "");
+    (meta.inputKind === "counselor" && selectedCounselor !== null) ||
+    (meta.inputKind === "student" && selectedStudent !== null) ||
+    (meta.inputKind === "student_counselor" && selectedAppointment !== null);
 
-  const handleRender = () => {
+  async function handleRender() {
+    const payload = buildPayload();
+
+    if (!payload) return;
+
     setRendering(true);
     setRendered(null);
+    setPdfPreviewUrl(null);
     setRenderError(null);
-    api
-      .post<{ rendered: string }>(
-        `/templates/${purpose}/render/`,
-        buildPayload(),
-      )
-      .then((res) => setRendered(res.data.rendered))
-      .catch((err) => {
-        const data: RenderError | undefined = err?.response?.data;
-        const detail = data?.error;
-        if (typeof detail === "string") {
-          setRenderError(detail);
-        } else if (detail) {
-          setRenderError(
-            `${detail.error_type}: ${detail.message}` +
-              (detail.line ? ` (line ${detail.line})` : "") +
-              (detail.variable ? ` [variable: ${detail.variable}]` : ""),
-          );
-        } else {
-          setRenderError("Could not render preview.");
-        }
-      })
-      .finally(() => setRendering(false));
-  };
+
+    try {
+      if (isDocument) {
+        const response = await api.post<Blob>(
+          `/templates/${purpose}/render/`,
+          payload,
+          {
+            responseType: "blob",
+          },
+        );
+
+        const previewUrl = URL.createObjectURL(response.data);
+
+        setPdfPreviewUrl(previewUrl);
+      } else {
+        const response = await api.post<{
+          rendered: string;
+        }>(`/templates/${purpose}/render/`, payload);
+
+        setRendered(response.data.rendered);
+      }
+    } catch (error: unknown) {
+      setRenderError(
+        await getApiErrorMessage(
+          error,
+          "Could not generate the template preview.",
+        ),
+      );
+    } finally {
+      setRendering(false);
+    }
+  }
 
   return (
     <div>
-      <h4>Test Render</h4>
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          alignItems: "flex-end",
-          flexWrap: "wrap",
-        }}
+      <h4>Render preview</h4>
+
+      <p style={{ color: "#6b7280" }}>
+        Search for a record by its name or ID and select it to generate the
+        preview.
+      </p>
+
+      {optionsLoading && <p>Loading available records…</p>}
+
+      {optionsError && <p style={{ color: "crimson" }}>{optionsError}</p>}
+
+      {!optionsLoading && !optionsError && meta.inputKind === "counselor" && (
+        <Autocomplete
+          options={counselors}
+          value={selectedCounselor}
+          onChange={(_, value) => setSelectedCounselor(value)}
+          getOptionLabel={(counselor) =>
+            `#${counselor.id} — ${counselor.title} ${counselor.first_name} ${counselor.last_name}`
+          }
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          renderInput={(parameters) => (
+            <TextField
+              {...parameters}
+              label="Counsellor"
+              placeholder="Search by name or ID"
+            />
+          )}
+        />
+      )}
+
+      {!optionsLoading && !optionsError && meta.inputKind === "student" && (
+        <Autocomplete
+          options={students}
+          value={selectedStudent}
+          onChange={(_, value) => setSelectedStudent(value)}
+          getOptionLabel={(student) =>
+            `#${student.id} — ${student.first_name} ${student.last_name} — ${student.matriculation_number}`
+          }
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          renderInput={(parameters) => (
+            <TextField
+              {...parameters}
+              label="Student"
+              placeholder="Search by name, ID, or matriculation number"
+            />
+          )}
+        />
+      )}
+
+      {!optionsLoading &&
+        !optionsError &&
+        meta.inputKind === "student_counselor" && (
+          <Autocomplete
+            options={appointments}
+            value={selectedAppointment}
+            onChange={(_, value) => setSelectedAppointment(value)}
+            getOptionLabel={(appointment) =>
+              `#${appointment.id} — ${studentName(
+                appointment.student,
+              )} — ${counselorName(
+                appointment.counselor,
+              )} — ${appointment.start_time.slice(0, 16)}`
+            }
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderInput={(parameters) => (
+              <TextField
+                {...parameters}
+                label="Appointment"
+                placeholder="Search by appointment ID, student, or counsellor"
+              />
+            )}
+          />
+        )}
+
+      <button
+        type="button"
+        onClick={handleRender}
+        disabled={!canRender || rendering}
+        style={{ marginTop: "1rem" }}
       >
-        {needsCounselor && (
-          <div>
-            <label>Counselor ID</label>
-            <input
-              type="number"
-              value={counselorId}
-              onChange={(e) => setCounselorId(e.target.value)}
-              style={{ display: "block" }}
-            />
-          </div>
-        )}
-        {needsStudent && (
-          <div>
-            <label>Student ID</label>
-            <input
-              type="number"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              style={{ display: "block" }}
-            />
-          </div>
-        )}
-        <button onClick={handleRender} disabled={!canRender || rendering}>
-          {rendering ? "Rendering…" : "Render Preview"}
-        </button>
-      </div>
+        {rendering ? "Rendering…" : "Render preview"}
+      </button>
 
       {renderError && (
-        <p style={{ color: "crimson", whiteSpace: "pre-wrap" }}>
+        <p
+          style={{
+            color: "crimson",
+            whiteSpace: "pre-wrap",
+          }}
+        >
           {renderError}
         </p>
       )}
-      {rendered !== null && (
-        <>
-          <label>Rendered Output</label>
+
+      {!isDocument && rendered !== null && (
+        <div style={{ marginTop: "1rem" }}>
+          <label>Email preview</label>
+
           <textarea
-            rows={12}
+            rows={14}
             value={rendered}
             readOnly
-            style={{ width: "100%" }}
+            style={{
+              width: "100%",
+              marginTop: "0.5rem",
+            }}
           />
-        </>
+        </div>
+      )}
+
+      {isDocument && pdfPreviewUrl && (
+        <div style={{ marginTop: "1rem" }}>
+          <label>PDF preview</label>
+
+          <iframe
+            title={`${meta.label} preview`}
+            src={pdfPreviewUrl}
+            style={{
+              display: "block",
+              width: "100%",
+              height: "600px",
+              marginTop: "0.5rem",
+              border: "1px solid #ddd",
+              borderRadius: 6,
+            }}
+          />
+
+          <a
+            href={pdfPreviewUrl}
+            download={`${purpose}.pdf`}
+            style={{
+              display: "inline-block",
+              marginTop: "0.75rem",
+            }}
+          >
+            Download PDF
+          </a>
+        </div>
       )}
     </div>
   );

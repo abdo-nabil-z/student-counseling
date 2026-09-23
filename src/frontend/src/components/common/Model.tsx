@@ -4,9 +4,17 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  width?: string;
+  maxHeight?: string;
 }
 
-export default function Modal({ title, onClose, children }: ModalProps) {
+export default function Modal({
+  title,
+  onClose,
+  children,
+  width = "min(480px, 90vw)",
+  maxHeight = "85vh",
+}: ModalProps) {
   return (
     <div
       onClick={onClose}
@@ -21,13 +29,13 @@ export default function Modal({ title, onClose, children }: ModalProps) {
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
         style={{
           background: "#fff",
           borderRadius: 8,
           padding: "1.5rem",
-          width: "min(480px, 90vw)",
-          maxHeight: "85vh",
+          width,
+          maxHeight,
           overflow: "auto",
         }}
       >
