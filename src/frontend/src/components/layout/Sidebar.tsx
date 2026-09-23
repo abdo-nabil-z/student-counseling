@@ -12,7 +12,8 @@ function Sidebar() {
         <Link to="/counselors">Counselors</Link>
         <Link to="/slots">Availabilty Slots </Link>
         <Link to="/appointments">Appointments</Link>
-        {/* <Link to="/templates">Templates</Link> */}
+        <Link to="/mail">Mail</Link>
+        <Link to="/templates">Templates</Link>
         {/* <Link to="/planning">Planning</Link> */}
         {/* <Link to="/student-mail">Student Mail</Link> */}
         {/* <Link to="/counselor-mail">Documents</Link> */}

@@ -9,6 +9,7 @@ import StudentMailPage from "./pages/StudentMailPage";
 import CounselorMailPage from "./pages/CounselorMailPage";
 import AppointmentsPage from "./pages/AppointmentPage";
 import TemplatesPage from "./pages/TemplatesPage";
+import MailPage from "./pages/MailPage";
 // ...inside <Routes><Route path="/" element={<AppLayout />}>...
 
 import "./App.css";
@@ -31,6 +32,7 @@ function App() {
             element={<CounselorMailPage />}
           />
           <Route path="templates" element={<TemplatesPage />} />
+          <Route path="mail" element={<MailPage />} />
           <Route path="slots" element={<SlotsPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
         </Route>

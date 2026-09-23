@@ -78,7 +78,12 @@ function StudentsPage() {
   }, []);
 
   function openMails(s: Student) {
-    navigate(`/students/${s.id}/mail`, { state: { student: s } });
+    navigate("/mail", {
+      state: {
+        targetType: "student",
+        targetIds: [s.id],
+      },
+    });
   }
 
   async function uploadPlan(

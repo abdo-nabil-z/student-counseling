@@ -6,6 +6,8 @@ export type Purpose =
   | "appointment_invitation"
   | "counselor_preparation_instruction"
   | "appointment_cancellation"
+  | "counselor_availability_request"
+  | "counselor_appointments_summary"
   | "study_plan"
   | "appointment_minutes";
 
@@ -23,12 +25,15 @@ export interface ContextVariable {
 }
 
 export interface RenderError {
-  error:
-    | string
-    | {
-        error_type: string;
-        message: string;
-        line?: number;
-        variable?: string;
-      };
+  error: {
+    code: string;
+    message: string;
+    details?: {
+      type?: string;
+      message?: string;
+      line?: number;
+      variable?: string;
+    } | null;
+    request_id: string;
+  };
 }
