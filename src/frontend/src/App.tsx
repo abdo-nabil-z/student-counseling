@@ -20,6 +20,7 @@ function App() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="students/import" element={<StudentImportPage />} />
+
           <Route path="students" element={<StudentsPage />} />
           <Route
             path="students/:studentId/mail"

@@ -17,6 +17,12 @@ class StudentCreateSerializer(serializers.ModelSerializer):
         ]
 
 
+
+
+class StudentImportSerializer(serializers.Serializer):
+    students = serializers.ListField(
+        child=serializers.DictField()
+    )
 class StudentUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student

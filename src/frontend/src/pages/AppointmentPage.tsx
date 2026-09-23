@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/client";
+import Modal from "../components/common/Model";
 import type { Counselor } from "../types/counselor";
 import type { Student } from "../types/student";
 import type { Slot } from "../types/slots";
@@ -85,6 +86,9 @@ function AppointmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Set right after a successful booking; drives the "send invitations now?" prompt.
+  const [justCreated, setJustCreated] = useState<Appointment | null>(null);
 
   function reloadAll() {
     Promise.all([
@@ -240,17 +244,21 @@ function AppointmentPage() {
     setSaving(true);
     setFormError(null);
     try {
-      await api.post("/appointments/create-appointment/", {
-        student: Number(studentId),
-        counselor: Number(counselorId),
-        slot: Number(slotId),
-        start_time: `${selectedSlot.date}T${startTime}:00`,
-        duration_minutes: duration,
-        location: location || null,
-      });
+      const res = await api.post<Appointment>(
+        "/appointments/create-appointment/",
+        {
+          student: Number(studentId),
+          counselor: Number(counselorId),
+          slot: Number(slotId),
+          start_time: `${selectedSlot.date}T${startTime}:00`,
+          duration_minutes: duration,
+          location: location || null,
+        },
+      );
       setStudentId("");
       setLocation("");
       reloadAll();
+      setJustCreated(res.data);
     } catch (e) {
       const err = e as { response?: { data?: unknown }; message: string };
       setFormError(
@@ -481,6 +489,43 @@ function AppointmentPage() {
               </button>
             </div>
           </div>
+
+          {justCreated && (
+            <Modal
+              title="Appointment created"
+              onClose={() => setJustCreated(null)}
+            >
+              <p>
+                The appointment for{" "}
+                <strong>{studentLabel(justCreated.student)}</strong> with{" "}
+                <strong>{counselorLabel(justCreated.counselor)}</strong> was
+                created. Send the invitation mails now?
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button
+                  onClick={() => {
+                    const appt = justCreated;
+                    setJustCreated(null);
+                    mailStudent(appt);
+                  }}
+                >
+                  Send Student Invitation
+                </button>
+                <button
+                  onClick={() => {
+                    const appt = justCreated;
+                    setJustCreated(null);
+                    mailCounselor(appt);
+                  }}
+                >
+                  Send Counselor Invitation
+                </button>
+                <button type="button" onClick={() => setJustCreated(null)}>
+                  Not now
+                </button>
+              </div>
+            </Modal>
+          )}
         </>
       )}
     </section>
