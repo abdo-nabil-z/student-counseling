@@ -8,6 +8,14 @@ import type { Slot } from "../types/slots";
 import type { Appointment } from "../types/appointment";
 import type { DocumentInfo } from "../types/document";
 
+const STATUS_OPTIONS = [
+  "pending",
+  "booked",
+  "completed",
+  "cancelled",
+  "missed",
+];
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "#9ca3af",
   booked: "#3b82f6",
@@ -87,8 +95,18 @@ function AppointmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Set right after a successful booking; drives the "send invitations now?" prompt.
-  const [justCreated, setJustCreated] = useState<Appointment | null>(null);
+  // Edit-appointment modal state
+  const [editing, setEditing] = useState<Appointment | null>(null);
+  const [editCounselorId, setEditCounselorId] = useState("");
+  const [editSlots, setEditSlots] = useState<Slot[]>([]);
+  const [editSlotId, setEditSlotId] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editDuration, setEditDuration] = useState("30");
+  const [editLocation, setEditLocation] = useState("");
+  const [editStatus, setEditStatus] = useState("booked");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   function reloadAll() {
     Promise.all([
@@ -124,6 +142,15 @@ function AppointmentPage() {
       .then((r) => setSlots(r.data))
       .catch(() => setSlots([]));
   }, [counselorId]);
+
+  // Fetch slots for whichever counselor is selected in the edit modal
+  useEffect(() => {
+    if (!editing || !editCounselorId) return;
+    api
+      .get<Slot[]>(`/counselors/${editCounselorId}/slots/`)
+      .then((r) => setEditSlots(r.data))
+      .catch(() => setEditSlots([]));
+  }, [editing, editCounselorId]);
 
   function onCounselorChange(v: string) {
     setCounselorId(v);
@@ -193,6 +220,71 @@ function AppointmentPage() {
     });
   }
 
+  function openEdit(a: Appointment) {
+    setEditing(a);
+    setEditError(null);
+    setEditCounselorId(String(idOf(a.counselor)));
+    setEditSlots([]); // refetched by the effect above once editCounselorId is set
+    setEditSlotId(a.slot ? String(a.slot.id) : "");
+    setEditDate(a.start_time.slice(0, 10));
+    setEditStartTime(a.start_time.slice(11, 16));
+    setEditDuration(String(a.duration_minutes));
+    setEditLocation(a.location ?? "");
+    setEditStatus(a.status);
+  }
+
+  function onEditCounselorChange(v: string) {
+    setEditCounselorId(v);
+    setEditSlotId("");
+    setEditSlots([]);
+  }
+
+  function onEditSlotChange(v: string) {
+    setEditSlotId(v);
+    const slot = editSlots.find((s) => String(s.id) === v);
+    if (slot) {
+      setEditDate(slot.date);
+      setEditStartTime(slot.start_time.slice(0, 5));
+    }
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    if (!editCounselorId || !editDate || !editStartTime || !editDuration) {
+      setEditError("Counselor, date, start time, and duration are required.");
+      return;
+    }
+    const duration = Number(editDuration);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      setEditError("Duration must be a positive number of minutes.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await api.patch(`/appointments/${editing.id}/`, {
+        counselor: Number(editCounselorId),
+        slot: editSlotId ? Number(editSlotId) : null,
+        start_time: `${editDate}T${editStartTime}:00`,
+        duration_minutes: duration,
+        location: editLocation || null,
+        status: editStatus,
+      });
+      setEditing(null);
+      reloadAll();
+    } catch (e) {
+      const err = e as { response?: { data?: unknown }; message: string };
+      setEditError(
+        "Could not save changes: " +
+          (err.response?.data
+            ? JSON.stringify(err.response.data)
+            : err.message),
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   async function uploadMinutes(appointmentId: number, file: File) {
     const fd = new FormData();
     fd.append("file", file);
@@ -208,6 +300,21 @@ function AppointmentPage() {
     if (!window.confirm("Delete this document?")) return;
     try {
       await api.delete(`/documents/${docId}/`);
+      reloadAll();
+    } catch (err) {
+      alert("Delete failed: " + (err as Error).message);
+    }
+  }
+
+  async function deleteAppointment(a: Appointment) {
+    if (
+      !window.confirm(
+        `Delete the appointment for ${studentLabel(a.student)}? This cannot be undone.`,
+      )
+    )
+      return;
+    try {
+      await api.delete(`/appointments/${a.id}/`);
       reloadAll();
     } catch (err) {
       alert("Delete failed: " + (err as Error).message);
@@ -244,21 +351,39 @@ function AppointmentPage() {
     setSaving(true);
     setFormError(null);
     try {
-      const res = await api.post<Appointment>(
-        "/appointments/create-appointment/",
-        {
-          student: Number(studentId),
-          counselor: Number(counselorId),
-          slot: Number(slotId),
-          start_time: `${selectedSlot.date}T${startTime}:00`,
-          duration_minutes: duration,
-          location: location || null,
-        },
-      );
+      await api.post("/appointments/create-appointment/", {
+        student: Number(studentId),
+        counselor: Number(counselorId),
+        slot: Number(slotId),
+        start_time: `${selectedSlot.date}T${startTime}:00`,
+        duration_minutes: duration,
+        location: location || null,
+      });
+
+      const createdStudent = students.find((s) => s.id === Number(studentId));
+      const createdDate = selectedSlot.date;
+      const createdTime = startTime;
+      const createdPlace = location || "";
+
       setStudentId("");
       setLocation("");
       reloadAll();
-      setJustCreated(res.data);
+
+      if (
+        createdStudent &&
+        window.confirm(
+          `Appointment created for ${createdStudent.first_name} ${createdStudent.last_name}. Send the invitation email now?`,
+        )
+      ) {
+        navigate(`/students/${createdStudent.id}/mail`, {
+          state: {
+            student: createdStudent,
+            date: createdDate,
+            time: createdTime,
+            place: createdPlace,
+          },
+        });
+      }
     } catch (e) {
       const err = e as { response?: { data?: unknown }; message: string };
       setFormError(
@@ -317,12 +442,13 @@ function AppointmentPage() {
                   <th>Final plan</th>
                   <th>Minutes</th>
                   <th>Mail</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {appointments.length === 0 && (
                   <tr>
-                    <td colSpan={10}>No appointments yet.</td>
+                    <td colSpan={11}>No appointments yet.</td>
                   </tr>
                 )}
                 {appointments.map((a) => {
@@ -388,6 +514,23 @@ function AppointmentPage() {
                           </button>
                           <button onClick={() => mailCounselor(a)}>
                             Mail counselor
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                          }}
+                        >
+                          <button onClick={() => openEdit(a)}>Edit</button>
+                          <button
+                            className="icon-btn--danger"
+                            onClick={() => deleteAppointment(a)}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -490,38 +633,96 @@ function AppointmentPage() {
             </div>
           </div>
 
-          {justCreated && (
+          {editing && (
             <Modal
-              title="Appointment created"
-              onClose={() => setJustCreated(null)}
+              title={`Edit Appointment — ${studentLabel(editing.student)}`}
+              onClose={() => setEditing(null)}
             >
-              <p>
-                The appointment for{" "}
-                <strong>{studentLabel(justCreated.student)}</strong> with{" "}
-                <strong>{counselorLabel(justCreated.counselor)}</strong> was
-                created. Send the invitation mails now?
-              </p>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <button
-                  onClick={() => {
-                    const appt = justCreated;
-                    setJustCreated(null);
-                    mailStudent(appt);
-                  }}
-                >
-                  Send Student Invitation
+              <label>Counselor</label>
+              <select
+                value={editCounselorId}
+                onChange={(e) => onEditCounselorChange(e.target.value)}
+              >
+                <option value="">— select —</option>
+                {counselors.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title} {c.first_name} {c.last_name}
+                  </option>
+                ))}
+              </select>
+
+              <label>Availability slot (optional)</label>
+              <select
+                value={editSlotId}
+                onChange={(e) => onEditSlotChange(e.target.value)}
+                disabled={!editCounselorId}
+              >
+                <option value="">— none / custom time —</option>
+                {editSlots.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.date} · {s.start_time.slice(0, 5)}–
+                    {s.end_time.slice(0, 5)}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <div style={{ flex: 1 }}>
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Start time</label>
+                  <input
+                    type="time"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Duration (min)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editDuration}
+                    onChange={(e) => setEditDuration(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <label>Place / location</label>
+              <input
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                placeholder="e.g. AE22-R273 or Zoom link"
+              />
+
+              <label>Status</label>
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+
+              {editError && <p style={{ color: "red" }}>{editError}</p>}
+
+              <div
+                style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}
+              >
+                <button onClick={saveEdit} disabled={editSaving}>
+                  {editSaving ? "Saving…" : "Save changes"}
                 </button>
-                <button
-                  onClick={() => {
-                    const appt = justCreated;
-                    setJustCreated(null);
-                    mailCounselor(appt);
-                  }}
-                >
-                  Send Counselor Invitation
-                </button>
-                <button type="button" onClick={() => setJustCreated(null)}>
-                  Not now
+                <button type="button" onClick={() => setEditing(null)}>
+                  Cancel
                 </button>
               </div>
             </Modal>

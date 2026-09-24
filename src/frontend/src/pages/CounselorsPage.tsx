@@ -98,7 +98,12 @@ function CounselorsPage() {
   }, []);
 
   function openMail(c: Counselor) {
-    navigate(`/counselors/${c.id}/mail`, { state: { counselor: c } });
+    navigate("/mail", {
+      state: {
+        targetType: "counselor",
+        targetIds: [c.id],
+      },
+    });
   }
 
   function openSlots(c: Counselor) {

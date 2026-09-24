@@ -21,6 +21,7 @@ from mailing.api.serializers import (
     ExistingEmailAttachmentSerializer,
     GeneratedEmailAttachmentSerializer,
     GeneratedEmailAttachmentResponseSerializer,
+    EmailBatchListSerializer,
 )
 from mailing.api_exceptions import EmailDeliveryNotEditable
 from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
@@ -58,6 +59,15 @@ def _ensure_delivery_editable(
 
 
 @extend_schema(
+    methods=["GET"],
+    responses={
+        200: EmailBatchListSerializer(many=True),
+    },
+    description="List all saved email batches, newest first, including their deliveries and attachment information.",
+    tags=["Mailing"],
+)
+@extend_schema(
+    methods=["POST"],
     request=EmailBatchCreateSerializer,
     responses={
         201: EmailBatchDetailSerializer,
@@ -65,12 +75,30 @@ def _ensure_delivery_editable(
         409: APIErrorResponseSerializer,
         422: APIErrorResponseSerializer,
     },
-    description="Generate an email batch with optional existing, uploaded, or generated attachments.",
+    description=(
+        "Generate an email batch with optional existing, uploaded, "
+        "or multiple generated PDF attachments."
+    ),
     tags=["Mailing"],
 )
-@api_view(["POST"])
+@api_view(["GET", "POST"])
 @parser_classes([JSONParser, MultiPartParser, FormParser])
 def create_email_batch(request):
+    if request.method == "GET":
+        batches = (
+            EmailBatch.objects
+            .order_by("-created_at", "-id")
+            .prefetch_related(
+                "deliveries__student",
+                "deliveries__counselor",
+                "deliveries__attachments",
+            )
+        )
+
+        serializer = EmailBatchListSerializer(batches, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     serializer = EmailBatchCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 

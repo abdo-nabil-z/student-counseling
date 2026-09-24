@@ -4,6 +4,7 @@ import api from "../api/client";
 import type { Student } from "../types/student";
 import type { Counselor } from "../types/counselor";
 import type { Appointment } from "../types/appointment";
+import type { EmailBatchListItem } from "../types/mail";
 
 interface SlotStatusSegment {
   status: "free" | "taken";
@@ -113,7 +114,7 @@ function DashboardPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-
+  const [mailBatches, setMailBatches] = useState<EmailBatchListItem[]>([]);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -128,6 +129,7 @@ function DashboardPage() {
       api.get<Counselor[]>("/counselors/"),
       api.get<Appointment[]>("/appointments/"),
       api.get<CounselorSlotStatus[]>("/counselors/slot-status/"),
+      api.get<EmailBatchListItem[]>("/mailing/batches/"),
     ])
       .then(
         ([
@@ -135,11 +137,12 @@ function DashboardPage() {
           counselorsResponse,
           appointmentsResponse,
           slotStatusResponse,
+          mailBatchesResponse,
         ]) => {
           setStudents(studentsResponse.data);
           setCounselors(counselorsResponse.data);
           setAppointments(appointmentsResponse.data);
-
+          setMailBatches(mailBatchesResponse.data);
           setAvailableSlots(
             createAvailableSlots(
               slotStatusResponse.data,
@@ -169,6 +172,30 @@ function DashboardPage() {
     });
   }
 
+  const queuedMails = mailBatches.reduce(
+    (total, savedBatch) =>
+      total +
+      savedBatch.deliveries.filter((delivery) => delivery.status === "queued")
+        .length,
+    0,
+  );
+
+  const draftMails = mailBatches.reduce(
+    (total, savedBatch) =>
+      total +
+      savedBatch.deliveries.filter((delivery) => delivery.status === "draft")
+        .length,
+    0,
+  );
+
+  const sentMails = mailBatches.reduce(
+    (total, savedBatch) =>
+      total +
+      savedBatch.deliveries.filter((delivery) => delivery.status === "sent")
+        .length,
+    0,
+  );
+
   return (
     <section>
       <h2>Dashboard</h2>
@@ -197,6 +224,21 @@ function DashboardPage() {
         >
           <h3>Appointments Planned</h3>
           <p>{loading ? "Loading…" : appointments.length}</p>
+        </div>
+        <div
+          className="card"
+          onClick={() => navigate("/mail")}
+          style={{ cursor: "pointer" }}
+        >
+          <h3>Mails Queued</h3>
+
+          <p>{loading ? "Loading…" : queuedMails}</p>
+
+          {!loading && (
+            <small style={{ fontSize: "1.1rem" }}>
+              {draftMails} drafts · {sentMails} sent
+            </small>
+          )}
         </div>
       </div>
 
