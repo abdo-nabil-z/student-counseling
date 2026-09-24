@@ -443,3 +443,66 @@ input[type="checkbox"] {
   background: transparent;
   color: #cbd5e1;
 }
+
+.mail-attachments {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.mail-attachments legend,
+.attachment-group-title {
+  font-weight: 700;
+}
+
+.attachment-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.attachment-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-weight: 400;
+}
+
+.attachment-options input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.attachment-help {
+  margin: 6px 0 12px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.attachment-list {
+  padding: 0;
+  list-style: none;
+}
+
+.attachment-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.attachment-remove-button {
+  margin: 0;
+  padding: 5px 9px;
+}
+.attachment-heading-help {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
