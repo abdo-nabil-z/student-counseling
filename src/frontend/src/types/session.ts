@@ -1,12 +1,12 @@
 import type { Student } from "./student";
 import type { Counselor } from "./counselor";
-import type { AppointmentSlot } from "./slots";
+import type { Slot } from "./slots";
 
 export interface CounselingSessionDetail {
   id: number;
   student: Student | null;
   counselor: Counselor | null;
-  slot: AppointmentSlot | null;
+  slot: Slot | null;
   status: "pending" | "booked" | "completed" | "cancelled" | "missed";
   notes: string | null;
   initial_study_plan: string | null;

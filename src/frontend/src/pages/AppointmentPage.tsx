@@ -198,27 +198,23 @@ function AppointmentPage() {
   function mailStudent(a: Appointment) {
     const s = studentObj(a.student);
     if (!s) return;
-    navigate(`/students/${s.id}/mail`, {
+    navigate("/mail", {
       state: {
-        student: s,
-        date: a.start_time.slice(0, 10),
-        time: a.start_time.slice(11, 16),
-        place: a.location ?? "",
+        targetType: "student",
+        targetIds: [s.id],
       },
     });
   }
-  function mailCounselor(a: Appointment) {
-    const c = counselorObj(a.counselor);
-    if (!c) return;
-    navigate(`/counselors/${c.id}/mail`, {
-      state: {
-        counselor: c,
-        date: a.start_time.slice(0, 10),
-        time: a.start_time.slice(11, 16),
-        place: a.location ?? "",
-      },
-    });
-  }
+  // function mailCounselor(a: Appointment) {
+  //   const c = counselorObj(a.counselor);
+  //   if (!c) return;
+  //   navigate("/mail", {
+  //     state: {
+  //       targetType: "counselor",
+  //       targetIds: [c.id],
+  //     },
+  //   });
+  // }
 
   function openEdit(a: Appointment) {
     setEditing(a);
@@ -510,11 +506,11 @@ function AppointmentPage() {
                           }}
                         >
                           <button onClick={() => mailStudent(a)}>
-                            Mail student
+                            Send Mail
                           </button>
-                          <button onClick={() => mailCounselor(a)}>
+                          {/* <button onClick={() => mailCounselor(a)}>
                             Mail counselor
-                          </button>
+                          </button> */}
                         </div>
                       </td>
                       <td>
@@ -527,7 +523,7 @@ function AppointmentPage() {
                         >
                           <button onClick={() => openEdit(a)}>Edit</button>
                           <button
-                            className="icon-btn--danger"
+                            className="icon-btn--delete"
                             onClick={() => deleteAppointment(a)}
                           >
                             Delete

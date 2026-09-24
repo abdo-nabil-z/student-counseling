@@ -5,6 +5,8 @@ import type {
   CounselorSlotStatus,
   SlotStatusSlot,
 } from "../types/counselorSlotStatus";
+//
+// import { openMailClient } from "../types/Mailto";
 import Modal from "../components/common/Model";
 import api from "../api/client";
 
@@ -77,7 +79,6 @@ function CounselorsPage() {
   const [availability, setAvailability] = useState<
     Record<number, CounselorSlotStatus>
   >({});
-
   // Counselor whose availability is currently loading
   const [loadingAvailability, setLoadingAvailability] = useState<number | null>(
     null,
@@ -96,7 +97,6 @@ function CounselorsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
-
   function openMail(c: Counselor) {
     navigate("/mail", {
       state: {

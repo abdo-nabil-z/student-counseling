@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Student } from "../types/student";
 import Modal from "../components/common/Model";
 import api from "../api/client";
-
+// import { openMailClient } from "../types/Mailto";
 function EditIcon() {
   return (
     <svg
