@@ -5,6 +5,7 @@ import api from "../api/client";
 import Modal from "../components/common/Model";
 import type {
   ApiErrorResponse,
+  EmailAttachment,
   EmailBatch,
   EmailBatchListItem,
   EmailBatchStatus,
@@ -16,6 +17,12 @@ import type { Student } from "../types/student";
 import type { Template } from "../types/template";
 
 type TargetType = "student" | "counselor";
+type ExistingDocumentType =
+  | "initial_study_plan"
+  | "final_study_plan"
+  | "appointment_minutes";
+
+type GeneratedPdfPurpose = "study_plan" | "appointment_minutes";
 
 interface EmailPurposeOption {
   value: EmailPurpose;
@@ -74,7 +81,76 @@ const EMAIL_PURPOSES: EmailPurposeOption[] = [
     requiresAppointment: false,
   },
 ];
+
+const EXISTING_DOCUMENT_OPTIONS: Array<{
+  value: ExistingDocumentType;
+  label: string;
+}> = [
+  {
+    value: "initial_study_plan",
+    label: "Initial study plan",
+  },
+  {
+    value: "final_study_plan",
+    label: "Final study plan",
+  },
+  {
+    value: "appointment_minutes",
+    label: "Appointment minutes",
+  },
+];
+
+const GENERATED_PDF_OPTIONS: Array<{
+  value: GeneratedPdfPurpose;
+  label: string;
+}> = [
+  {
+    value: "study_plan",
+    label: "Study Plan PDF",
+  },
+  {
+    value: "appointment_minutes",
+    label: "Appointment Minutes PDF",
+  },
+];
+
+function attachmentDownloadUrl(attachment: EmailAttachment): string | null {
+  if (attachment.download_url) {
+    return attachment.download_url;
+  }
+
+  if (attachment.document_id) {
+    return `/api/documents/${attachment.document_id}/download/`;
+  }
+
+  return null;
+}
+
 const MAILS_PER_PAGE = 20;
+function extractErrorMessages(value: unknown): string[] {
+  if (value === null || value === undefined) {
+    return [];
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return [String(value)];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap(extractErrorMessages);
+  }
+
+  if (typeof value === "object") {
+    return Object.values(value).flatMap(extractErrorMessages);
+  }
+
+  return [];
+}
+
 function getErrorMessage(error: unknown, fallback: string): string {
   const data = (
     error as {
@@ -86,10 +162,14 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
   const apiError = data?.error;
 
-  if (!apiError) return fallback;
+  if (!apiError) {
+    return fallback;
+  }
 
-  if (apiError.details) {
-    return `${apiError.message} ${JSON.stringify(apiError.details)}`;
+  const details = extractErrorMessages(apiError.details).join(" ");
+
+  if (details) {
+    return `${apiError.message || fallback} ${details}`;
   }
 
   return apiError.message || fallback;
@@ -123,6 +203,15 @@ function MailPage() {
 
   const [selectedCounselors, setSelectedCounselors] = useState<Counselor[]>([]);
   const [purpose, setPurpose] = useState<EmailPurpose | "">("");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+
+  const [existingDocumentTypes, setExistingDocumentTypes] = useState<
+    ExistingDocumentType[]
+  >([]);
+
+  const [generatedPdfPurposes, setGeneratedPdfPurposes] = useState<
+    GeneratedPdfPurpose[]
+  >([]);
   const [batch, setBatch] = useState<EmailBatch | null>(null);
   const [mailHistory, setMailHistory] = useState<EmailBatchListItem[]>([]);
   const [historyPage, setHistoryPage] = useState(0);
@@ -138,6 +227,9 @@ function MailPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingDelivery, setSavingDelivery] = useState(false);
+  const [reviewFiles, setReviewFiles] = useState<File[]>([]);
+
+  const [uploadingReviewFiles, setUploadingReviewFiles] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -237,11 +329,31 @@ function MailPage() {
     setBatchStatus(null);
 
     try {
-      const response = await api.post<EmailBatch>("/mailing/batches/", {
-        purpose: purpose,
-        target_ids: targetIds,
-        send_immediately: false,
+      const formData = new FormData();
+
+      formData.append("purpose", purpose);
+      formData.append("send_immediately", "false");
+
+      targetIds.forEach((targetId) => {
+        formData.append("target_ids", String(targetId));
       });
+
+      existingDocumentTypes.forEach((documentType) => {
+        formData.append("existing_document_types", documentType);
+      });
+
+      generatedPdfPurposes.forEach((pdfPurpose) => {
+        formData.append("generated_pdf_purposes", pdfPurpose);
+      });
+
+      uploadedFiles.forEach((file) => {
+        formData.append("uploaded_files", file);
+      });
+
+      const response = await api.post<EmailBatch>(
+        "/mailing/batches/",
+        formData,
+      );
 
       setBatch(response.data);
       await loadMailHistory();
@@ -364,6 +476,101 @@ function MailPage() {
     } catch (requestError: unknown) {
       setError(
         getErrorMessage(requestError, "Could not queue this email again."),
+      );
+    }
+  }
+
+  async function addReviewAttachments() {
+    if (!editingDelivery || reviewFiles.length === 0) {
+      return;
+    }
+
+    setUploadingReviewFiles(true);
+    setError(null);
+
+    try {
+      for (const file of reviewFiles) {
+        const formData = new FormData();
+
+        formData.append("file", file);
+
+        await api.post(
+          `/mailing/deliveries/${editingDelivery.id}/attachments/upload/`,
+          formData,
+        );
+      }
+
+      const response = await api.get<EmailDelivery>(
+        `/mailing/deliveries/${editingDelivery.id}/`,
+      );
+
+      setEditingDelivery(response.data);
+
+      setBatch((currentBatch) => {
+        if (!currentBatch) {
+          return currentBatch;
+        }
+
+        return {
+          ...currentBatch,
+          deliveries: currentBatch.deliveries.map((delivery) =>
+            delivery.id === response.data.id ? response.data : delivery,
+          ),
+        };
+      });
+
+      setReviewFiles([]);
+      await loadMailHistory();
+    } catch (requestError: unknown) {
+      setError(getErrorMessage(requestError, "Could not add the attachments."));
+    } finally {
+      setUploadingReviewFiles(false);
+    }
+  }
+
+  async function removeAttachment(deliveryId: number, attachmentId: number) {
+    setError(null);
+
+    try {
+      await api.delete(
+        `/mailing/deliveries/${deliveryId}/attachments/${attachmentId}/`,
+      );
+
+      setBatch((currentBatch) => {
+        if (!currentBatch) {
+          return currentBatch;
+        }
+
+        return {
+          ...currentBatch,
+          deliveries: currentBatch.deliveries.map((delivery) =>
+            delivery.id === deliveryId
+              ? {
+                  ...delivery,
+                  attachments: delivery.attachments.filter(
+                    (attachment) => attachment.id !== attachmentId,
+                  ),
+                }
+              : delivery,
+          ),
+        };
+      });
+
+      setEditingDelivery((currentDelivery) =>
+        currentDelivery?.id === deliveryId
+          ? {
+              ...currentDelivery,
+              attachments: currentDelivery.attachments.filter(
+                (attachment) => attachment.id !== attachmentId,
+              ),
+            }
+          : currentDelivery,
+      );
+
+      await loadMailHistory();
+    } catch (requestError: unknown) {
+      setError(
+        getErrorMessage(requestError, "Could not remove the attachment."),
       );
     }
   }
@@ -491,6 +698,8 @@ function MailPage() {
 
               if (nextPurposeOption?.targetType !== "student") {
                 setSelectedStudents([]);
+                setExistingDocumentTypes([]);
+                setGeneratedPdfPurposes([]);
               }
 
               if (nextPurposeOption?.targetType !== "counselor") {
@@ -640,6 +849,86 @@ function MailPage() {
             </p>
           )}
 
+          <fieldset className="mail-attachments">
+            <legend>Attachments (optional)</legend>
+
+            <label htmlFor="mail-uploaded-files">Upload files</label>
+
+            <input
+              id="mail-uploaded-files"
+              type="file"
+              multiple
+              onChange={(event) =>
+                setUploadedFiles(Array.from(event.target.files ?? []))
+              }
+            />
+
+            {uploadedFiles.length > 0 && (
+              <p className="attachment-help">
+                {uploadedFiles.map((file) => file.name).join(", ")}
+              </p>
+            )}
+
+            {selectedPurpose?.targetType === "student" && (
+              <>
+                <p className="attachment-group-title">
+                  Attach saved documents{" "}
+                  <span className="attachment-heading-help">
+                    (each student receives their own saved document)
+                  </span>
+                </p>
+                <div className="attachment-options">
+                  {EXISTING_DOCUMENT_OPTIONS.map((option) => (
+                    <label key={option.value}>
+                      <input
+                        type="checkbox"
+                        checked={existingDocumentTypes.includes(option.value)}
+                        onChange={(event) =>
+                          setExistingDocumentTypes((current) =>
+                            event.target.checked
+                              ? [...current, option.value]
+                              : current.filter((item) => item !== option.value),
+                          )
+                        }
+                      />
+
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+
+                <p className="attachment-group-title">
+                  Generate PDFs from templates
+                </p>
+
+                <div className="attachment-options">
+                  {GENERATED_PDF_OPTIONS.map((option) => (
+                    <label key={option.value}>
+                      <input
+                        type="checkbox"
+                        checked={generatedPdfPurposes.includes(option.value)}
+                        onChange={(event) =>
+                          setGeneratedPdfPurposes((current) =>
+                            event.target.checked
+                              ? [...current, option.value]
+                              : current.filter((item) => item !== option.value),
+                          )
+                        }
+                      />
+
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+
+                <p className="attachment-help">
+                  Every selected recipient must have the required saved document
+                  or appointment information.
+                </p>
+              </>
+            )}
+          </fieldset>
+
           <button
             type="button"
             onClick={generateDrafts}
@@ -672,6 +961,8 @@ function MailPage() {
                   <th>CC</th>
                   <th>Subject</th>
                   <th>Status</th>
+                  <th>Status</th>
+                  <th>Attachments</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -700,12 +991,21 @@ function MailPage() {
                       )}
 
                       {delivery.status === "failed" && (
-                        <button
-                          type="button"
-                          onClick={() => resendDelivery(delivery.id)}
-                        >
-                          Resend
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditingDelivery({ ...delivery })}
+                          >
+                            Review / edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => resendDelivery(delivery.id)}
+                          >
+                            Resend
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -835,6 +1135,14 @@ function MailPage() {
                     <td>{delivery.status}</td>
 
                     <td>
+                      {delivery.attachments.length > 0
+                        ? delivery.attachments
+                            .map((attachment) => attachment.name)
+                            .join(", ")
+                        : "—"}
+                    </td>
+
+                    <td>
                       {delivery.status === "draft" ? (
                         <button
                           type="button"
@@ -857,7 +1165,10 @@ function MailPage() {
       {editingDelivery && (
         <Modal
           title={`Review email — ${getDeliveryTargetName(editingDelivery)}`}
-          onClose={() => setEditingDelivery(null)}
+          onClose={() => {
+            setEditingDelivery(null);
+            setReviewFiles([]);
+          }}
           width="min(900px, 95vw)"
           maxHeight="92vh"
         >
@@ -892,6 +1203,65 @@ function MailPage() {
             }
           />
 
+          <h4>Attachments</h4>
+
+          <input
+            type="file"
+            multiple
+            onChange={(event) =>
+              setReviewFiles(Array.from(event.target.files ?? []))
+            }
+          />
+
+          {reviewFiles.length > 0 && (
+            <>
+              <p className="attachment-help">
+                {reviewFiles.map((file) => file.name).join(", ")}
+              </p>
+
+              <button
+                type="button"
+                onClick={addReviewAttachments}
+                disabled={uploadingReviewFiles}
+              >
+                {uploadingReviewFiles
+                  ? "Adding attachments…"
+                  : "Add attachments"}
+              </button>
+            </>
+          )}
+          {editingDelivery.attachments.length === 0 ? (
+            <p>No attachments.</p>
+          ) : (
+            <ul className="attachment-list">
+              {editingDelivery.attachments.map((attachment) => {
+                const downloadUrl = attachmentDownloadUrl(attachment);
+
+                return (
+                  <li key={attachment.id}>
+                    {downloadUrl ? (
+                      <a href={downloadUrl} target="_blank" rel="noreferrer">
+                        {attachment.name}
+                      </a>
+                    ) : (
+                      <span>{attachment.name}</span>
+                    )}
+
+                    <button
+                      type="button"
+                      className="attachment-remove-button"
+                      onClick={() =>
+                        void removeAttachment(editingDelivery.id, attachment.id)
+                      }
+                    >
+                      Remove
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
           <button
             type="button"
             onClick={saveDelivery}
@@ -903,7 +1273,13 @@ function MailPage() {
           >
             {savingDelivery ? "Saving…" : "Save draft"}
           </button>
-          <button type="button" onClick={() => setEditingDelivery(null)}>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingDelivery(null);
+              setReviewFiles([]);
+            }}
+          >
             Cancel
           </button>
         </Modal>
