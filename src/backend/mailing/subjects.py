@@ -26,4 +26,5 @@ DEFAULT_EMAIL_SUBJECTS = {
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: (
         "Your accepted counseling appointments"
     ),
+    Purpose.GENERAL_MAIL: "General message",
 }

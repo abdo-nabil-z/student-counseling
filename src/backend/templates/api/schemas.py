@@ -7,6 +7,7 @@ from templates.api.serializers import (
     CounselorRenderSerializer,
     StudentRenderSerializer,
     StudentCounselorRenderSerializer,
+    ExternalRecipientRenderSerializer,
 )
 
 # ── Shared response fragments ────────────────────────────────────────────────
@@ -167,4 +168,10 @@ render_counselor_appointments_summary = (
             "summary email for a counselor."
         ),
     )
+)
+
+
+render_general_mail = _render_schema(
+    ExternalRecipientRenderSerializer,
+    "Render the general email template for an external recipient.",
 )

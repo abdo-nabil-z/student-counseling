@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from counselors.models import Counselor, Slot
 
+from counselors.models import Counselor, Slot
+from counselors.api_exceptions import SlotOverlapWarning
 
 class CounselorCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,25 +38,45 @@ class CounselorDetailSerializer(serializers.ModelSerializer):
 
 
 class SlotCreateSerializer(serializers.ModelSerializer):
+    allow_overlap = serializers.BooleanField(
+    write_only=True,
+    default=False,
+)
     class Meta:
         model = Slot
-        fields = ["date", "start_time", "end_time"]
+        fields = ["date", "start_time", "end_time", "allow_overlap"]
 
     def validate(self, attrs):
         if attrs["start_time"] >= attrs["end_time"]:
-            raise serializers.ValidationError("Start time must be before end time.")
+            raise serializers.ValidationError(
+                "Start time must be before end time."
+            )
+
         counselor = self.context.get("counselor")
+        allow_overlap = attrs.pop("allow_overlap", False)
+
         if counselor:
-            overlapping = Slot.objects.filter(
-                counselor=counselor,
-                date=attrs["date"],
-                start_time__lt=attrs["end_time"],
-                end_time__gt=attrs["start_time"],
-            ).exists()
-            if overlapping:
-                raise serializers.ValidationError(
-                    "This slot overlaps with an existing one for this counselor."
+            overlapping_slots = list(
+                Slot.objects.filter(
+                    counselor=counselor,
+                    date=attrs["date"],
+                    start_time__lt=attrs["end_time"],
+                    end_time__gt=attrs["start_time"],
+                ).values(
+                    "id",
+                    "date",
+                    "start_time",
+                    "end_time",
                 )
+            )
+
+            if overlapping_slots and not allow_overlap:
+                raise SlotOverlapWarning(details={
+                    "overlapping_slots": overlapping_slots,
+                    "can_override": True,
+                    "override_field": "allow_overlap",
+                })
+
         return attrs
 
 

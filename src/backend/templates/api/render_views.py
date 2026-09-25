@@ -18,6 +18,7 @@ from templates.api.serializers import (
     CounselorRenderSerializer,
     StudentRenderSerializer,
     StudentCounselorRenderSerializer,
+    ExternalRecipientRenderSerializer,
 )
 from templates.context_registry import (
     TestmailContext,
@@ -27,6 +28,7 @@ from templates.context_registry import (
     CounselorAppointmentsContext,
     StudyPlanContext,
     AppointmentMinutesContext,
+    ExternalRecipientContext,
 )
 from templates.rendering import TemplateRenderError, render_from_template  # noqa: F401 — re-exported
 from pdf.rendering import render_template_to_pdf
@@ -169,4 +171,16 @@ def render_counselor_appointments_summary(request):
         Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL,
         CounselorRenderSerializer,
         CounselorAppointmentsContext,
+    )
+
+
+
+@schemas.render_general_mail
+@api_view(["POST"])
+def render_general_mail(request):
+    return _render_purpose(
+        request,
+        Purpose.GENERAL_MAIL,
+        ExternalRecipientRenderSerializer,
+        ExternalRecipientContext,
     )

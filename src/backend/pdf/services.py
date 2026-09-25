@@ -18,8 +18,11 @@ def save_pdf_as_document(name: str, template_content: str, **context) -> int:
     longer needed, such as after successfully sending it by email.
     """
     pdf_bytes = render_template_to_pdf(template_content, **context)
-    file = ContentFile(pdf_bytes, name=f"{name}.pdf")
-    document = attach_document(file, name)
+
+    filename = name if name.lower().endswith(".pdf") else f"{name}.pdf"
+
+    file = ContentFile(pdf_bytes, name=filename)
+    document = attach_document(file, filename)
     return document.id
 
 def render_and_save_pdf(name: str, purpose: str, **context) -> int:

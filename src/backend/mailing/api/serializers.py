@@ -13,11 +13,12 @@ from counselors.models import Counselor
 class EmailBatchCreateSerializer(serializers.Serializer):
     purpose = serializers.ChoiceField(choices=EMAIL_PURPOSE_CHOICES)
 
-    target_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False,
+    target_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), required=False, default=list, allow_empty=True,
                                         help_text=(
                                             "IDs of the entities selected for this email purpose. "
                                             "Student purposes expect student IDs; "
-                                            "counselor purposes expect counselor IDs."
+                                            "counselor purposes expect counselor IDs. "
+                                            "General external mail uses external_recipients instead."
                                         ),)
 
     send_immediately = serializers.BooleanField(default=False, help_text=("If false, generated emails are drafts. If true, they are queued for sending."))
@@ -41,6 +42,14 @@ class EmailBatchCreateSerializer(serializers.Serializer):
         default=list,
     )
 
+    external_recipients = serializers.ListField(
+        child=serializers.EmailField(),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="Email addresses for general external mail.",
+    )
+
 
     def validate_target_ids(self, value):
         if len(value) != len(set(value)):
@@ -58,19 +67,65 @@ class EmailBatchCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Duplicate existing document types are not allowed.")
         return value
 
+    def validate_external_recipients(self, value):
+        normalized = [email.strip().lower() for email in value]
+
+        if len(normalized) != len(set(normalized)):
+            raise serializers.ValidationError(
+                "Duplicate external recipient addresses are not allowed."
+            )
+
+        return value
     
     def validate(self, attrs):
         purpose = attrs["purpose"]
-        target_ids = attrs["target_ids"]
-
+        target_ids = attrs.get("target_ids", [])
+        external_recipients = attrs.get("external_recipients", [])
         config = EMAIL_PURPOSE_CONFIG[purpose]
+
+        if config.target_type == "external":
+            if not external_recipients:
+                raise serializers.ValidationError({
+                    "external_recipients": [
+                        "At least one external recipient email is required."
+                    ]
+                })
+
+            if target_ids:
+                raise serializers.ValidationError({
+                    "target_ids": [
+                        "target_ids must be empty for general external mail."
+                    ]
+                })
+
+            if attrs.get("existing_document_types") or attrs.get("generated_pdf_purposes"):
+                raise serializers.ValidationError({
+                    "attachments": [
+                        "External mail may use uploaded files, but student documents "
+                        "and generated student PDFs require a student context."
+                    ]
+                })
+
+            return attrs
+
+        if external_recipients:
+            raise serializers.ValidationError({
+                "external_recipients": [
+                    "External recipients are only supported by general_mail."
+                ]
+            })
+
+        if not target_ids:
+            raise serializers.ValidationError({
+                "target_ids": ["At least one target ID is required."]
+            })
 
         if config.target_type == "student":
             model = Student
             target_label = "students"
         else:
             model = Counselor
-            target_label="counselor"
+            target_label = "counselors"
 
         existing_ids = set(
             model.objects.filter(pk__in=target_ids).values_list("pk", flat=True)
@@ -83,20 +138,12 @@ class EmailBatchCreateSerializer(serializers.Serializer):
         ]
 
         if missing_ids:
-            raise serializers.ValidationError(
-                {
-                    "target_ids": [
-                        (
-                            f"The following {target_label} do not exist: "
-                            + ", ".join(
-                                str(target_id)
-                                for target_id
-                                in missing_ids
-                            )
-                        )
-                    ]
-                }
-            )
+            raise serializers.ValidationError({
+                "target_ids": [
+                    f"The following {target_label} do not exist: "
+                    + ", ".join(str(target_id) for target_id in missing_ids)
+                ]
+            })
 
         return attrs
 
@@ -382,3 +429,37 @@ class EmailBatchStatusSerializer(serializers.Serializer):
     deliveries = EmailDeliveryStatusSerializer(
         many=True
     )
+
+
+
+class EmailSettingsUpdateSerializer(serializers.Serializer):
+    smtp_host = serializers.CharField(max_length=255)
+    smtp_port = serializers.IntegerField(min_value=1, max_value=65535)
+    use_tls = serializers.BooleanField()
+    smtp_username = serializers.CharField(max_length=255)
+
+    password = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+        trim_whitespace=False,
+    )
+
+    from_name = serializers.CharField(max_length=255)
+    from_email = serializers.EmailField()
+    persist_credentials = serializers.BooleanField()
+
+
+class EmailSettingsResponseSerializer(serializers.Serializer):
+    smtp_host = serializers.CharField()
+    smtp_port = serializers.IntegerField()
+    use_tls = serializers.BooleanField()
+    smtp_username = serializers.CharField(allow_blank=True)
+    from_name = serializers.CharField(allow_blank=True)
+    from_email = serializers.EmailField(allow_blank=True)
+    persist_credentials = serializers.BooleanField()
+    password_configured = serializers.BooleanField()
+
+
+class EmailSettingsTestResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()

@@ -9,12 +9,13 @@ from mailing.api_exceptions import EmailTemplateNotConfigured
 from mailing.purpose_config import EMAIL_PURPOSE_CONFIG
 from mailing.subjects import DEFAULT_EMAIL_SUBJECTS
 from students.models import Student
-from templates.api.render_views import TemplateRenderError, render_from_template
+from templates.rendering import TemplateRenderError, render_from_template
 from templates.context_registry import (
     AppointmentStudentCounselorContext, 
     StudentAndBlocksContext,
     CounselorAppointmentsContext,
     CounselorOnlyContext,
+    ExternalRecipientContext,
 )
 from templates.models import Template
 from counselors.models import Counselor
@@ -120,14 +121,28 @@ def _build_counselor_target(*, counselor: Counselor, purpose: str):
         list(counselor.additional_cc or [])
     )
 
+
+def _build_external_target(*, recipient_email: str):
+    context = ExternalRecipientContext.build(recipient_email=recipient_email)
+
+    return (
+        context.model_dump(),
+        None,
+        None,
+        recipient_email,
+        [],
+    )
+
+
 def _load_targets(*, purpose: str, target_ids: list[int]):
     config = EMAIL_PURPOSE_CONFIG[purpose]
 
     if config.target_type == "student":
         targets_by_id = Student.objects.in_bulk(target_ids)
-
-    else:
+    elif config.target_type == "counselor":
         targets_by_id = Counselor.objects.in_bulk(target_ids)
+    else:
+        return {}
 
     missing_ids = [
         target_id
@@ -136,26 +151,17 @@ def _load_targets(*, purpose: str, target_ids: list[int]):
     ]
 
     if missing_ids:
-        raise ValidationError(
-            {
-                "target_ids": [
-                    (
-                        "The following targets "
-                        "do not exist: "
-                        + ", ".join(
-                            str(target_id)
-                            for target_id
-                            in missing_ids
-                        )
-                    )
-                ]
-            }
-        )
+        raise ValidationError({
+            "target_ids": [
+                "The following targets do not exist: "
+                + ", ".join(str(target_id) for target_id in missing_ids)
+            ]
+        })
 
     return targets_by_id
 
 @transaction.atomic
-def generate_email_batch(*, purpose: str, target_ids: list[int], send_immediately: bool)->EmailBatch:
+def generate_email_batch(*, purpose: str, target_ids: list[int], external_recipients: list[str], send_immediately: bool)->EmailBatch:
     config = EMAIL_PURPOSE_CONFIG.get(purpose)
 
     if config is None:
@@ -192,27 +198,39 @@ def generate_email_batch(*, purpose: str, target_ids: list[int], send_immediatel
         else EmailDelivery.Status.DRAFT
     )
 
-    for target_id in target_ids:
-        target = targets_by_id[target_id]
+    if config.target_type == "external":
+        target_values = external_recipients
+    else:
+        target_values = target_ids
 
+
+    for target_value in target_values:
         if config.target_type == "student":
-            context, student, counselor, recipient_email, cc = _build_student_target(student=target, purpose=purpose)
+            context, student, counselor, recipient_email, cc = _build_student_target(
+                student=targets_by_id[target_value],
+                purpose=purpose,
+            )
+
+        elif config.target_type == "counselor":
+            context, student, counselor, recipient_email, cc = _build_counselor_target(
+                counselor=targets_by_id[target_value],
+                purpose=purpose,
+            )
 
         else:
-            context, student, counselor, recipient_email, cc = _build_counselor_target(counselor=target, purpose=purpose)
-        
+            context, student, counselor, recipient_email, cc = _build_external_target(
+                recipient_email=target_value
+            )
+
         try:
             rendered_body = render_from_template(template.content, **context)
-
         except TemplateRenderError as exc:
-            raise TemplateRenderFailed(
-                details={
-                    "purpose": purpose,
-                    "target_type": config.target_type,
-                    "target_id": target_id,
-                    **exc.to_dict(),
-                }
-            ) from exc
+            raise TemplateRenderFailed(details={
+                "purpose": purpose,
+                "target_type": config.target_type,
+                "target": target_value,
+                **exc.to_dict(),
+            }) from exc
 
         EmailDelivery.objects.create(
             batch=batch,
@@ -225,5 +243,3 @@ def generate_email_batch(*, purpose: str, target_ids: list[int], send_immediatel
             body=rendered_body,
             status=delivery_status,
         )
-
-    return batch

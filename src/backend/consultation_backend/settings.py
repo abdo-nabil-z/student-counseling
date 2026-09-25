@@ -168,6 +168,9 @@ EMAIL_PORT = int(
     )
 )
 
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "")
+
+
 EMAIL_HOST_USER = os.environ.get(
     "EMAIL_HOST_USER",
     "",
@@ -176,6 +179,16 @@ EMAIL_HOST_USER = os.environ.get(
 EMAIL_HOST_PASSWORD = os.environ.get(
     "EMAIL_HOST_PASSWORD",
     "",
+)
+
+EMAIL_CREDENTIALS_ENCRYPTION_KEY = os.environ.get(
+    "EMAIL_CREDENTIALS_ENCRYPTION_KEY",
+    "django-insecure-#9bl(t(r7txg1(^1po262bd!@5v5)ylut$78s2%hqn&-$s@dui",
+)
+
+EMAIL_RUNTIME_CREDENTIALS_FILE = os.environ.get(
+    "EMAIL_RUNTIME_CREDENTIALS_FILE",
+    "/tmp/study_counseling_email_credentials.json",
 )
 
 EMAIL_USE_TLS = (

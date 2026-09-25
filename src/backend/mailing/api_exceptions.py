@@ -29,3 +29,15 @@ class EmailTemplateNotConfigured(ApplicationAPIException):
         "The required email template is not configured."
     )
     default_code = "email_template_not_configured"
+
+
+class EmailSettingsNotConfigured(ApplicationAPIException):
+    status_code = 409
+    default_detail = "Email credentials are not configured."
+    default_code = "email_settings_not_configured"
+
+
+class EmailConnectionFailed(ApplicationAPIException):
+    status_code = 502
+    default_detail = "The SMTP connection could not be established."
+    default_code = "email_connection_failed"
