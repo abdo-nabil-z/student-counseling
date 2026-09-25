@@ -83,3 +83,9 @@ class StudentCounselorRenderSerializer(serializers.Serializer):
             raise serializers.ValidationError(errors)
 
         return attrs
+
+
+class ExternalRecipientRenderSerializer(serializers.Serializer):
+    recipient_email = serializers.EmailField(
+        help_text="External recipient email address"
+    )

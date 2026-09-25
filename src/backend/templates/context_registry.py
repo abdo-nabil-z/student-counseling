@@ -137,7 +137,12 @@ class AppointmentMinutesContext(PDFContext):
         return cls(student=student, counselor=counselor, appointment=appointment)
 
     
+class ExternalRecipientContext(BaseModel):
+    recipient_email: str
 
+    @classmethod
+    def build(cls, recipient_email: str) -> "ExternalRecipientContext":
+        return cls(recipient_email=recipient_email)
 
 
 
@@ -155,6 +160,7 @@ PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
     Purpose.APPOINTMENT_MINUTES: AppointmentMinutesContext,
     Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorOnlyContext,
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorAppointmentsContext,
+    Purpose.GENERAL_MAIL: ExternalRecipientContext
 }
 
 

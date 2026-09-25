@@ -105,6 +105,7 @@ def create_email_batch(request):
     batch = create_email_batch_with_attachments(
         purpose=serializer.validated_data["purpose"],
         target_ids=serializer.validated_data["target_ids"],
+        external_recipients=serializer.validated_data["external_recipients"],
         send_immediately=serializer.validated_data["send_immediately"],
         generated_pdf_purposes=serializer.validated_data["generated_pdf_purposes"],
         existing_document_types=serializer.validated_data["existing_document_types"],

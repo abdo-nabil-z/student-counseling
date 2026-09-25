@@ -27,6 +27,7 @@ class EmailDelivery(models.Model):
     class RecipientType(models.TextChoices):
         STUDENT = "student", "Student"
         COUNSELOR = "counselor", "Counselor"
+        EXTERNAL = "external", "External"
 
     batch = models.ForeignKey(EmailBatch, on_delete=models.CASCADE, related_name="deliveries")
 
@@ -61,6 +62,8 @@ class EmailDelivery(models.Model):
                     models.Q(recipient_type="student", student__isnull=False)
                     |
                     models.Q(recipient_type="counselor", counselor__isnull=False)
+                    |
+                    models.Q(recipient_type="external", student__isnull=True, counselor__isnull= True)
                 ),
                 name= "email_delivery_requires_recipient_entity"
             )

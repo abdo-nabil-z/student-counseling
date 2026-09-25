@@ -11,6 +11,7 @@ class Purpose(models.TextChoices):
     APPOINTMENT_CANCELLATION_MAIL = "appointment_cancellation", "Appointment Cancellation"
     COUNSELOR_AVAILABILITY_REQUEST_MAIL = "counselor_availability_request", "Availability Request (Counselor)"
     COUNSELOR_APPOINTMENTS_SUMMARY_MAIL = "counselor_appointments_summary", "Accepted Appointments Summary (Counselor)"
+    GENERAL_MAIL = "general_mail", "General Email"
 
     STUDY_PLAN = "study_plan", "Study Plan"
     APPOINTMENT_MINUTES = "appointment_minutes", "Appointment Minutes"

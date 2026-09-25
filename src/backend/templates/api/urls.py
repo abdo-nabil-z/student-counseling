@@ -16,6 +16,7 @@ from templates.api.views import (
     render_appointment_minutes,
     render_counselor_availability_request,
     render_counselor_appointments_summary,
+    render_general_mail,
 )
 
 app_name = 'templates_api'
@@ -39,5 +40,6 @@ urlpatterns = [
     path("appointment_minutes/render/", render_appointment_minutes, name="render_appointment_minutes"),
     path("counselor_availability_request/render/", render_counselor_availability_request, name="render_counselor_availability_request"),
     path("counselor_appointments_summary/render/",render_counselor_appointments_summary, name="render_counselor_appointments_summary"),
+    path("general_mail/render/", render_general_mail, name="render_general_mail"),
 ]
 

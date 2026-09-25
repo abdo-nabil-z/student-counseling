@@ -21,6 +21,7 @@ from templates.api.render_views import (  # noqa: F401 — re-exported for urls.
     render_appointment_minutes,
     render_counselor_availability_request,
     render_counselor_appointments_summary,
+    render_general_mail,
 )
 
 

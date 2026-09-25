@@ -7,6 +7,7 @@ from templates.models import Purpose
 TargetType = Literal[
     "student",
     "counselor",
+    "external",
 ]
 
 ContextKind = Literal[
@@ -14,6 +15,7 @@ ContextKind = Literal[
     "appointment",
     "counselor",
     "counselor_appointments",
+    "external",
 ]
 
 
@@ -87,6 +89,12 @@ EMAIL_PURPOSE_CONFIG  = {
             recipient_type="counselor",
             context_kind="counselor_appointments",
         )
+    ),
+
+    Purpose.GENERAL_MAIL:EmailPurposeConfig(
+        target_type="external",
+        recipient_type="external",
+        context_kind="external",
     ),
 }
 
