@@ -1,10 +1,15 @@
 import logging
+from email.utils import formataddr
 
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
 from mailing.models import EmailDelivery, EmailAttachment
+from mailing.services.email_settings import (
+    build_email_connection,
+    get_active_email_settings,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -144,14 +149,26 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
             )
         )
 
+    account = get_active_email_settings()
+    connection = build_email_connection(account)
+    from_header = formataddr((
+        account.from_name,
+        account.from_email,
+    ))
+
     message = EmailMessage(
         subject=delivery.subject,
         body=delivery.body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=from_header,
         to=[
             delivery.recipient_email,
         ],
         cc=delivery.cc,
+        reply_to=[account.from_email],
+        connection=connection,
+        headers={
+            "X-Mailer": "Study Counseling System",
+        },
     )
 
     _record_send_attempt(delivery)
