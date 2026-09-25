@@ -22,6 +22,9 @@ from mailing.api.serializers import (
     GeneratedEmailAttachmentSerializer,
     GeneratedEmailAttachmentResponseSerializer,
     EmailBatchListSerializer,
+    EmailSettingsUpdateSerializer,
+    EmailSettingsResponseSerializer,
+    EmailSettingsTestResponseSerializer,
 )
 from mailing.api_exceptions import EmailDeliveryNotEditable
 from mailing.models import EmailBatch, EmailDelivery, EmailAttachment
@@ -33,6 +36,12 @@ from mailing.services.attachments import (
     create_existing_document_attachment,
     create_uploaded_attachment,
     create_generated_pdf_attachment,
+)
+from mailing.services.email_settings import(
+    get_public_email_settings,
+    clear_email_settings,
+    save_email_settings,
+    test_active_email_connection,
 )
 from mailing.api.renderers import BinaryFileRenderer
 from documents.models import Document
@@ -624,4 +633,87 @@ def generate_email_pdf_attachment(
             )
         },
         status=status.HTTP_201_CREATED,
+    )
+
+
+@extend_schema(
+    methods=["GET"],
+    responses={
+        200: EmailSettingsResponseSerializer,
+    },
+    description=(
+        "Return the currently configured SMTP/email account settings. "
+        "The SMTP password is never returned; password_configured indicates "
+        "whether a password is currently available."
+    ),
+    tags=["Mailing Settings"],
+)
+@extend_schema(
+    methods=["PUT"],
+    request=EmailSettingsUpdateSerializer,
+    responses={
+        200: EmailSettingsResponseSerializer,
+        400: APIErrorResponseSerializer,
+    },
+    description=(
+        "Create or update the SMTP/email account settings. "
+        "If password is omitted or blank, the currently configured password "
+        "is preserved when one already exists. Credentials may be stored "
+        "persistently or only for the current runtime."
+    ),
+    tags=["Mailing Settings"],
+)
+@extend_schema(
+    methods=["DELETE"],
+    responses={
+        204: OpenApiResponse(
+            description="Email account settings and stored credentials were cleared."
+        ),
+    },
+    description="Clear the configured SMTP/email account settings and credentials.",
+    tags=["Mailing Settings"],
+)
+@api_view(["GET", "PUT", "DELETE"])
+def email_account_settings(request):
+    if request.method == "GET":
+        return Response(
+            get_public_email_settings(),
+            status=status.HTTP_200_OK,
+        )
+
+    if request.method == "DELETE":
+        clear_email_settings()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = EmailSettingsUpdateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    result = save_email_settings(serializer.validated_data)
+
+    return Response(
+        result,
+        status=status.HTTP_200_OK,
+    )
+
+
+@extend_schema(
+    request=None,
+    responses={
+        200: EmailSettingsTestResponseSerializer,
+        409: APIErrorResponseSerializer,
+        502: APIErrorResponseSerializer,
+    },
+    description=(
+        "Test the currently configured SMTP credentials by opening "
+        "an SMTP connection. No email is sent."
+    ),
+    tags=["Mailing Settings"],
+)
+@api_view(["POST"])
+def test_email_account_settings(request):
+    test_active_email_connection()
+
+    return Response(
+        {"ok": True},
+        status=status.HTTP_200_OK,
     )

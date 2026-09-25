@@ -429,3 +429,37 @@ class EmailBatchStatusSerializer(serializers.Serializer):
     deliveries = EmailDeliveryStatusSerializer(
         many=True
     )
+
+
+
+class EmailSettingsUpdateSerializer(serializers.Serializer):
+    smtp_host = serializers.CharField(max_length=255)
+    smtp_port = serializers.IntegerField(min_value=1, max_value=65535)
+    use_tls = serializers.BooleanField()
+    smtp_username = serializers.CharField(max_length=255)
+
+    password = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        write_only=True,
+        trim_whitespace=False,
+    )
+
+    from_name = serializers.CharField(max_length=255)
+    from_email = serializers.EmailField()
+    persist_credentials = serializers.BooleanField()
+
+
+class EmailSettingsResponseSerializer(serializers.Serializer):
+    smtp_host = serializers.CharField()
+    smtp_port = serializers.IntegerField()
+    use_tls = serializers.BooleanField()
+    smtp_username = serializers.CharField(allow_blank=True)
+    from_name = serializers.CharField(allow_blank=True)
+    from_email = serializers.EmailField(allow_blank=True)
+    persist_credentials = serializers.BooleanField()
+    password_configured = serializers.BooleanField()
+
+
+class EmailSettingsTestResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()

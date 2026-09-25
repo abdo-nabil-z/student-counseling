@@ -105,4 +105,20 @@ class EmailAttachment(models.Model):
 
     def __str__(self):
         return f"Attachment {self.pk} for delivery {self.delivery_id}: {self.name}"
-    
+
+
+class EmailAccountSettings(models.Model):
+    smtp_host = models.CharField(max_length=255, default="email.uni-rostock.de")
+    smtp_port = models.PositiveIntegerField(default=587)
+    use_tls = models.BooleanField(default=True)
+
+    smtp_username = models.CharField(max_length=255)
+    encrypted_password = models.TextField()
+
+    from_name = models.CharField(max_length=255)
+    from_email = models.EmailField()
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Email account settings for {self.from_email}"
