@@ -15,6 +15,7 @@ from mailing.services.sending import (
 )
 from students.models import Student
 from templates.models import Purpose
+from mailing.services.email_settings import ActiveEmailSettings
 
 
 @override_settings(
@@ -25,6 +26,24 @@ from templates.models import Purpose
 )
 class EmailSendingServiceTests(TestCase):
     def setUp(self):
+        self.email_settings_patcher = patch(
+            "mailing.services.sending.get_active_email_settings",
+            return_value=ActiveEmailSettings(
+                smtp_host="smtp.test.local",
+                smtp_port=587,
+                use_tls=True,
+                smtp_username="test-user",
+                password="test-password",
+                from_name="Prof. Test",
+                from_email="sender@uni-rostock.de",
+                persist_credentials=False,
+            ),
+        )
+
+        self.email_settings_patcher.start()
+        self.addCleanup(
+            self.email_settings_patcher.stop
+        )
         self.media_directory = tempfile.TemporaryDirectory()
         self.media_override = override_settings(MEDIA_ROOT=self.media_directory.name)
         self.media_override.enable()
@@ -94,7 +113,17 @@ class EmailSendingServiceTests(TestCase):
 
         self.assertEqual(
             sent_email.from_email,
-            "sender@uni-rostock.de",
+            '"Prof. Test" <sender@uni-rostock.de>',
+        )
+
+        self.assertEqual(
+            sent_email.reply_to,
+            ["sender@uni-rostock.de"],
+        )
+
+        self.assertEqual(
+            sent_email.extra_headers["X-Mailer"],
+            "Study Counseling System",
         )
 
         self.assertEqual(

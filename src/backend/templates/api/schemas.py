@@ -107,7 +107,11 @@ purpose_context_schema = extend_schema(
 
 render_testmail = _render_schema(
     CounselorRenderSerializer,
-    "Render the testmail template for a counselor, injecting their available slots.",
+    (
+        "Render the testmail template for a counselor, injecting "
+        "their currently free availability segments after pending "
+        "and booked appointments have been removed."
+    ),
 )
 
 render_student_invitation = _render_schema(

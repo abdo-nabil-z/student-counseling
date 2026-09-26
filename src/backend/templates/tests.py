@@ -1,9 +1,16 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from templates.models import Template, Purpose
 from appointments.models import Appointment
-from counselors.models import Counselor
+from counselors.models import Counselor, Slot
+from counselors.template_context import (
+    AllAvailableSlotsContext,
+    CounselorContext,
+)
 from students.models import Student
 
 class TemplateAPIErrorTests(APITestCase):
@@ -165,4 +172,181 @@ class CounselorMailTemplateTests(
         self.assertNotIn(
             cancelled_student.full_name,
             rendered,
+        )
+
+
+
+class TemplateAvailabilityContextTests(APITestCase):
+    def setUp(self):
+        self.berlin = ZoneInfo("Europe/Berlin")
+
+        self.counselor = Counselor.objects.create(
+            title="Prof.",
+            first_name="Template",
+            last_name="Counselor",
+            chair="Institute",
+            office_address="Room 1",
+            email="template.counselor@example.com",
+        )
+
+        self.student = Student.objects.create(
+            matriculation_number="600000001",
+            first_name="Template",
+            last_name="Student",
+            email="template.student@example.com",
+        )
+
+        self.slot = Slot.objects.create(
+            counselor=self.counselor,
+            date="2026-09-28",
+            start_time="15:00",
+            end_time="16:00",
+        )
+
+    def test_counselor_context_returns_remaining_free_part_of_slot(self):
+        Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            slot=self.slot,
+            start_time=datetime(
+                2026,
+                9,
+                28,
+                15,
+                0,
+                tzinfo=self.berlin,
+            ),
+            duration_minutes=30,
+            status=Appointment.Status.BOOKED,
+        )
+
+        context = CounselorContext.from_model(
+            self.counselor
+        )
+
+        self.assertEqual(
+            len(context.slots),
+            1,
+        )
+
+        free_slot = context.slots[0]
+
+        self.assertEqual(
+            free_slot.start_time.strftime("%H:%M"),
+            "15:30",
+        )
+
+        self.assertEqual(
+            free_slot.end_time.strftime("%H:%M"),
+            "16:00",
+        )
+
+    def test_cancelled_appointment_does_not_reduce_template_availability(self):
+        Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            slot=self.slot,
+            start_time=datetime(
+                2026,
+                9,
+                28,
+                15,
+                0,
+                tzinfo=self.berlin,
+            ),
+            duration_minutes=30,
+            status=Appointment.Status.CANCELLED,
+        )
+
+        context = CounselorContext.from_model(
+            self.counselor
+        )
+
+        self.assertEqual(
+            len(context.slots),
+            1,
+        )
+
+        free_slot = context.slots[0]
+
+        self.assertEqual(
+            free_slot.start_time.strftime("%H:%M"),
+            "15:00",
+        )
+
+        self.assertEqual(
+            free_slot.end_time.strftime("%H:%M"),
+            "16:00",
+        )
+
+    def test_all_available_slots_context_uses_partial_free_segments(self):
+        Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            slot=self.slot,
+            start_time=datetime(
+                2026,
+                9,
+                28,
+                15,
+                0,
+                tzinfo=self.berlin,
+            ),
+            duration_minutes=30,
+            status=Appointment.Status.BOOKED,
+        )
+
+        context = AllAvailableSlotsContext.build()
+
+        self.assertEqual(
+            len(context.slots),
+            1,
+        )
+
+        free_slot = context.slots[0]
+
+        self.assertEqual(
+            free_slot.start_time.strftime("%H:%M"),
+            "15:30",
+        )
+
+        self.assertEqual(
+            free_slot.end_time.strftime("%H:%M"),
+            "16:00",
+        )
+
+    def test_appointment_without_slot_still_reduces_template_availability(self):
+        Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            slot=None,
+            start_time=datetime(
+                2026,
+                9,
+                28,
+                15,
+                0,
+                tzinfo=self.berlin,
+            ),
+            duration_minutes=30,
+            status=Appointment.Status.BOOKED,
+        )
+
+        context = CounselorContext.from_model(
+            self.counselor
+        )
+
+        self.assertEqual(
+            len(context.slots),
+            1,
+        )
+
+        self.assertEqual(
+            context.slots[0].start_time.strftime("%H:%M"),
+            "15:30",
+        )
+
+        self.assertEqual(
+            context.slots[0].end_time.strftime("%H:%M"),
+            "16:00",
         )

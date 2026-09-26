@@ -144,3 +144,100 @@ class GlobalErrorHandelingTests(APITestCase):
             error["message"],
             "The requested resource does not exist.",
         )
+
+
+class SchemaDocumentationTests(APITestCase):
+    def _get_schema(self):
+        response = self.client.get(
+            "/api/schema/?format=json"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        return response.json()
+
+    def test_swagger_title_is_correct(self):
+        schema = self._get_schema()
+
+        self.assertEqual(
+            schema["info"]["title"],
+            "Consultation Backend APIs",
+        )
+
+    def test_create_appointment_documents_overlap_warning(self):
+        schema = self._get_schema()
+
+        responses = schema["paths"][
+            "/api/appointments/create-appointment/"
+        ]["post"]["responses"]
+
+        self.assertIn(
+            "409",
+            responses,
+        )
+
+    def test_update_appointment_documents_overlap_warning(self):
+        schema = self._get_schema()
+
+        responses = schema["paths"][
+            "/api/appointments/{appointment_id}/"
+        ]["patch"]["responses"]
+
+        self.assertIn(
+            "409",
+            responses,
+        )
+
+    def test_slot_creation_does_not_document_overlap_warning(self):
+        schema = self._get_schema()
+
+        responses = schema["paths"][
+            "/api/counselors/{counselor_id}/slots/"
+        ]["post"]["responses"]
+
+        self.assertNotIn(
+            "409",
+            responses,
+        )
+
+    def test_minutes_upload_documents_any_file_type(self):
+        schema = self._get_schema()
+
+        operation = schema["paths"][
+            "/api/appointments/{appointment_id}/minutes/"
+        ]["post"]
+
+        description = (
+            operation["requestBody"]
+            ["content"]
+            ["multipart/form-data"]
+            ["schema"]
+            ["properties"]
+            ["file"]
+            ["description"]
+        )
+
+        self.assertIn(
+            "Any file type",
+            description,
+        )
+
+    def test_student_appointment_documents_success_response(self):
+        schema = self._get_schema()
+
+        responses = schema["paths"][
+            "/api/students/{student_id}/appointment/"
+        ]["get"]["responses"]
+
+        self.assertIn(
+            "200",
+            responses,
+        )
+
+        self.assertIn(
+            "404",
+            responses,
+        )

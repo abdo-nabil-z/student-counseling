@@ -363,10 +363,12 @@ class EmailBatchGenerationTests(
             delivery.body,
         )
 
+        expected_start_time = timezone.localtime(
+            appointment.start_time
+        ).time()
+
         self.assertIn(
-            str(
-                appointment.start_time.time()
-            ),
+            str(expected_start_time),
             delivery.body,
         )
 

@@ -139,8 +139,10 @@ def _load_targets(*, purpose: str, target_ids: list[int]):
 
     if config.target_type == "student":
         targets_by_id = Student.objects.in_bulk(target_ids)
+
     elif config.target_type == "counselor":
         targets_by_id = Counselor.objects.in_bulk(target_ids)
+
     else:
         return {}
 
@@ -161,7 +163,9 @@ def _load_targets(*, purpose: str, target_ids: list[int]):
     return targets_by_id
 
 @transaction.atomic
-def generate_email_batch(*, purpose: str, target_ids: list[int], external_recipients: list[str], send_immediately: bool)->EmailBatch:
+def generate_email_batch(*, purpose: str, target_ids: list[int], external_recipients=None, send_immediately: bool)->EmailBatch:
+    external_recipients = external_recipients or []
+
     config = EMAIL_PURPOSE_CONFIG.get(purpose)
 
     if config is None:
@@ -243,3 +247,5 @@ def generate_email_batch(*, purpose: str, target_ids: list[int], external_recipi
             body=rendered_body,
             status=delivery_status,
         )
+
+    return batch

@@ -17,13 +17,17 @@ def create_email_batch_with_attachments(
     generated_pdf_purposes: list[str],
     existing_document_types: list[str],
     uploaded_files: list,
+    external_recipients=None,
 ) -> EmailBatch:
     # Always create drafts first.
     # This prevents the queue worker from picking up the email
     # before its attachments have been created.
+    
+    external_recipients = external_recipients or []
     batch = generate_email_batch(
         purpose=purpose,
         target_ids=target_ids,
+        external_recipients=external_recipients,
         send_immediately=False,
     )
 
@@ -56,5 +60,6 @@ def create_email_batch_with_attachments(
         return batch
 
     except Exception:
-        batch.delete()
+        if batch is not None:
+            batch.delete()
         raise

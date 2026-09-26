@@ -15,6 +15,7 @@ from mailing.models import (
 from mailing.services.processing import (
     process_next_queued_delivery,
 )
+from mailing.services.email_settings import ActiveEmailSettings
 from students.models import Student
 from templates.models import Purpose
 
@@ -29,6 +30,24 @@ from templates.models import Purpose
 )
 class EmailQueueProcessingTests(TestCase):
     def setUp(self):
+        self.email_settings_patcher = patch(
+            "mailing.services.sending.get_active_email_settings",
+            return_value=ActiveEmailSettings(
+                smtp_host="smtp.test.local",
+                smtp_port=587,
+                use_tls=True,
+                smtp_username="test-user",
+                password="test-password",
+                from_name="Prof. Test",
+                from_email="sender@uni-rostock.de",
+                persist_credentials=False,
+            ),
+        )
+
+        self.email_settings_patcher.start()
+        self.addCleanup(
+            self.email_settings_patcher.stop
+        )
         self.student = Student.objects.create(
             matriculation_number="400000001",
             first_name="Anna",

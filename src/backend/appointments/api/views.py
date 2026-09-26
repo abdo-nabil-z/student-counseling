@@ -161,13 +161,21 @@ from documents.services import replace_attached_document
 
 
 @extend_schema(
-        request=AppointmentSerializer,
-        responses={
-            201: AppointmentSerializer,
-            400: APIErrorResponseSerializer,
-        },
-        description="Create a new Appointment linking the student and the counselor and the time slot",
-        tags=["Appointments"],
+    request=AppointmentSerializer,
+    responses={
+        201: AppointmentSerializer,
+        400: APIErrorResponseSerializer,
+        409: APIErrorResponseSerializer,
+    },
+    description=(
+        "Create a new appointment for a student and counselor. "
+        "The availability slot is optional. If a slot is provided, "
+        "it must belong to the selected counselor and the appointment "
+        "must fit inside it. Active appointments (pending or booked) "
+        "that overlap another active appointment for the same counselor "
+        "return an appointment_overlap_warning unless allow_overlap=true."
+    ),
+    tags=["Appointments"],
 )
 @api_view(["POST"])
 def create_appointment(request):
@@ -212,6 +220,7 @@ def list_appointments(request):
     return Response(AppointmentDetailSerializer(appointments, many=True).data)
 
 
+
 @extend_schema(
         responses={
             200: AppointmentDetailSerializer,
@@ -227,8 +236,16 @@ def list_appointments(request):
         200: AppointmentDetailSerializer,
         400: APIErrorResponseSerializer,
         404: APIErrorResponseSerializer,
+        409: APIErrorResponseSerializer,
     },
-    description="Update an appointment. Use this for rescheduling or updating the appointment information",
+    description=(
+        "Update or reschedule an appointment. If a slot is provided, "
+        "it must belong to the selected counselor and the appointment "
+        "must fit inside it. Rescheduling an active appointment so that "
+        "it overlaps another active appointment for the same counselor "
+        "returns an appointment_overlap_warning unless allow_overlap=true. "
+        "Cancelled, missed, and completed appointments do not block availability."
+    ),
     tags=["Appointments"],
     methods=["PATCH"],
 )
@@ -269,7 +286,7 @@ def detail_update_appointment(request, appointment_id):
         "multipart/form-data": {
             "type": "object",
             "properties": {
-                "file": {"type": "string", "format": "binary", "description": "PDF file to upload"},
+                "file": {"type": "string", "format": "binary", "description": "File to upload. Any file type is accepted."},
                 "name": {"type": "string", "description": "Display name; defaults to filename"},
             },
             "required": ["file"],

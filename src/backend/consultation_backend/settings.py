@@ -125,7 +125,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Counsultation backend APIs',
+    'TITLE': 'Consultation Backend APIs',
     'DESCRIPTION': 'API documentation',
     'VERSION': '0.0.1',
 }
@@ -135,7 +135,7 @@ SPECTACULAR_SETTINGS = {
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Berlin'
 
 USE_I18N = True
 
@@ -153,7 +153,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.smtp.EmailBackend",
 )
 
 EMAIL_HOST = os.environ.get(
@@ -171,15 +171,6 @@ EMAIL_PORT = int(
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "")
 
 
-EMAIL_HOST_USER = os.environ.get(
-    "EMAIL_HOST_USER",
-    "",
-)
-
-EMAIL_HOST_PASSWORD = os.environ.get(
-    "EMAIL_HOST_PASSWORD",
-    "",
-)
 
 EMAIL_CREDENTIALS_ENCRYPTION_KEY = os.environ.get(
     "EMAIL_CREDENTIALS_ENCRYPTION_KEY",
@@ -199,10 +190,6 @@ EMAIL_USE_TLS = (
     == "true"
 )
 
-DEFAULT_FROM_EMAIL = os.environ.get(
-    "DEFAULT_FROM_EMAIL",
-    "",
-)
 
 EMAIL_TIMEOUT = int(
     os.environ.get(

@@ -120,7 +120,11 @@ def detail_counselor(request, counselor_id):
         400: APIErrorResponseSerializer,
         404: APIErrorResponseSerializer,
     },
-    description="Create slot for one counselor",
+    description=(
+        "Create an availability slot for one counselor. "
+        "Availability slots may overlap; appointment conflicts "
+        "are validated separately."
+    ),
     tags=["Counselors"],
 )
 @api_view(["GET", "POST"])
@@ -149,8 +153,17 @@ def create_list_counselor_slots(request, counselor_id):
 
 
 @extend_schema(
-    responses={200: CounselorSlotStatusSerializer},
-    description="Return one counselor's slots split into free and taken time segments, including uncovered appointments.",
+    responses={
+        200: CounselorSlotStatusSerializer,
+        404: APIErrorResponseSerializer,
+    },
+    description=(
+        "Return one counselor's availability slots split into free "
+        "and taken time segments. Only pending and booked appointments "
+        "occupy availability. Cancelled, missed, and completed "
+        "appointments are ignored. Active appointments outside all "
+        "availability slots are returned as uncovered_appointments."
+    ),
     tags=["Counselors"],
 )
 @api_view(["GET"])
@@ -164,8 +177,15 @@ def get_counselor_slot_status(request, counselor_id):
 
 
 @extend_schema(
-    responses={200: CounselorSlotStatusSerializer(many=True)},
-    description="Return all counselor slots split into free and taken time segments, including uncovered appointments.",
+    responses={
+        200: CounselorSlotStatusSerializer(many=True),
+    },
+    description=(
+        "Return availability for all counselors, split into free "
+        "and taken segments. Appointment occupation is calculated "
+        "independently for each counselor; appointments belonging "
+        "to different counselors do not conflict."
+    ),
     tags=["Counselors"],
 )
 @api_view(["GET"])

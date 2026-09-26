@@ -6,6 +6,12 @@ from counselors.models import Counselor, Slot
 from datetime import datetime, timedelta
 
 
+ACTIVE_APPOINTMENT_STATUSES = (
+    Appointment.Status.PENDING,
+    Appointment.Status.BOOKED,
+)
+
+
 def _make_slot_datetime(slot_date, slot_time):
     value = datetime.combine(slot_date, slot_time)
 
@@ -15,9 +21,14 @@ def _make_slot_datetime(slot_date, slot_time):
     return value
 
 
-def _appointment_end_time(appointment):
-    return appointment.start_time + timedelta(minutes=appointment.duration_minutes)
+def _appointment_start_time(appointment):
+    return timezone.localtime(appointment.start_time)
 
+
+def _appointment_end_time(appointment):
+    return _appointment_start_time(appointment) + timedelta(
+        minutes=appointment.duration_minutes
+    )
 
 def _student_data(student):
     return {
@@ -30,10 +41,12 @@ def _student_data(student):
 
 
 def _appointment_data(appointment):
+    start_time = _appointment_start_time(appointment)
+
     return {
         "id": appointment.id,
         "status": appointment.status,
-        "start_time": appointment.start_time,
+        "start_time": start_time,
         "duration_minutes": appointment.duration_minutes,
         "end_time": _appointment_end_time(appointment),
         "location": appointment.location,
@@ -62,7 +75,7 @@ def _slot_end_datetime(slot):
 
 
 def _appointment_overlaps_slot(appointment, slot):
-    appointment_start = appointment.start_time
+    appointment_start = _appointment_start_time(appointment)
     appointment_end = _appointment_end_time(appointment)
 
     slot_start = _slot_start_datetime(slot)
@@ -85,7 +98,7 @@ def _build_segments_for_slot(slot, appointments):
     cursor = slot_start
 
     for appointment in overlapping_appointments:
-        appointment_start = appointment.start_time
+        appointment_start = _appointment_start_time(appointment)
         appointment_end = _appointment_end_time(appointment)
 
         taken_start = max(appointment_start, slot_start)
@@ -145,7 +158,10 @@ def build_counselor_slot_status(counselor):
 
     appointments = list(
         Appointment.objects
-        .filter(counselor=counselor)
+        .filter(
+            counselor=counselor,
+            status__in=ACTIVE_APPOINTMENT_STATUSES,
+        )
         .select_related("student", "counselor", "slot")
         .order_by("start_time")
     )

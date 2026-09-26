@@ -1,12 +1,46 @@
-from pydantic import BaseModel
 from datetime import date, time
-from counselors.models import Counselor, Slot
+
+from django.utils import timezone
+from pydantic import BaseModel
+
+from counselors.models import Counselor
+from counselors.services.slot_status import (
+    build_all_counselor_slot_statuses,
+    build_counselor_slot_status,
+)
 
 
 class SlotContext(BaseModel):
     date: date
     start_time: time
     end_time: time
+
+
+def _free_slot_contexts(status_data):
+    free_slots = []
+
+    for slot in status_data["slots"]:
+        for segment in slot["segments"]:
+            if segment["status"] != "free":
+                continue
+
+            start = timezone.localtime(
+                segment["start"]
+            )
+
+            end = timezone.localtime(
+                segment["end"]
+            )
+
+            free_slots.append(
+                SlotContext(
+                    date=start.date(),
+                    start_time=start.time(),
+                    end_time=end.time(),
+                )
+            )
+
+    return free_slots
 
 
 class CounselorContext(BaseModel):
@@ -17,10 +51,17 @@ class CounselorContext(BaseModel):
     department: str
     office_address: str
     email: str
-    slots: list[SlotContext]  # slots that have no booked/pending appointment
+    slots: list[SlotContext]
 
     @classmethod
-    def from_model(cls, counselor: Counselor) -> "CounselorContext":
+    def from_model(
+        cls,
+        counselor: Counselor,
+    ) -> "CounselorContext":
+        slot_status = build_counselor_slot_status(
+            counselor
+        )
+
         return cls(
             title=counselor.title,
             first_name=counselor.first_name,
@@ -29,12 +70,9 @@ class CounselorContext(BaseModel):
             department=counselor.chair,
             office_address=counselor.office_address,
             email=counselor.email,
-            slots=[
-                SlotContext(date=s.date, start_time=s.start_time, end_time=s.end_time)
-                for s in counselor.slots.exclude(
-                    appointments__status__in=["booked", "pending"]
-                ).distinct()
-            ]
+            slots=_free_slot_contexts(
+                slot_status
+            ),
         )
 
 
@@ -44,8 +82,14 @@ class AllAvailableSlotsContext(BaseModel):
     @classmethod
     def build(cls) -> "AllAvailableSlotsContext":
         slots = []
-        for slot in Slot.objects.exclude(
-            appointments__status__in=["booked", "pending"]
-        ).distinct():
-            slots.append(SlotContext(date=slot.date, start_time=slot.start_time, end_time=slot.end_time))
+
+        for status_data in (
+            build_all_counselor_slot_statuses()
+        ):
+            slots.extend(
+                _free_slot_contexts(
+                    status_data
+                )
+            )
+
         return cls(slots=slots)

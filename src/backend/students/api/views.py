@@ -15,6 +15,7 @@ from students.api.serializers import StudentCreateSerializer, StudentDetailSeria
 from students.services.semester_cleanup import delete_semester_data
 from documents.api.serializers import DocumentInfoSerializer, DocumentUploadSerializer
 from documents.services import replace_attached_document
+from appointments.api.serializers import AppointmentDetailSerializer
 
 from .import_utils import (
     parse_file,
@@ -321,8 +322,8 @@ def detail_student(request, student_id):
     request=DocumentUploadSerializer,
     responses={
         201: DocumentInfoSerializer,
-        400: OpenApiResponse(description="Validation errors"),
-        404: OpenApiResponse(description="Student not found")
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer,
     },
     description="Upload the initial study plan file for a student. Replaces any existing one.",
     tags=["Students"],
@@ -359,13 +360,18 @@ def upload_initial_study_plan(request, student_id):
 
 
 @extend_schema(
-    responses={404: OpenApiResponse(description="Student or appointment not found")},
-    description="Get the appointment for a student. Returns 404 if the student has no appointment.",
+    responses={
+        200: AppointmentDetailSerializer,
+        404: APIErrorResponseSerializer,
+    },
+    description=(
+        "Get the appointment associated with a student. "
+        "Returns 404 if the student does not exist or has no appointment."
+    ),
     tags=["Students"],
 )
 @api_view(["GET"])
 def get_student_appointment(request, student_id):
-    from appointments.api.serializers import AppointmentDetailSerializer
     from appointments.models import Appointment
     student = get_object_or_404(Student, id=student_id)
     appointment = get_object_or_404(Appointment, student=student)

@@ -175,8 +175,8 @@ def get_email_batch(request, batch_id):
         409: APIErrorResponseSerializer,
     },
     description=(
-        "Edit the subject or body of a draft "
-        "email before it is queued for sending."
+        "Edit the subject or body of a draft or failed email delivery. "
+        "Queued and sent deliveries can no longer be edited."
     ),
     tags=["Mailing"],
 )

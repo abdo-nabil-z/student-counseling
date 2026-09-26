@@ -127,7 +127,7 @@ Response:
 ```json
 {
   "error": {
-    "code": "not_found",
+    "code": "endpoint_not_found",
     "message": "The requested API endpoint was not found.",
     "details": null,
     "request_id": "e0d413a5-12dd-44c6-b67f-f2fe80db78ab"
@@ -179,80 +179,171 @@ If a database document record exists but its physical file is missing, the downl
 
 ```http
 404 Not Found
+```
+
+
+## Appointment and availability rules
+
+The application uses the `Europe/Berlin` timezone so counseling times follow German local time, including daylight-saving changes.
+
+Counselor availability is represented by `Slot` records. Availability slots themselves may overlap.
+
+Appointments are independent for each counselor. Appointments belonging to different counselors may occur at the same time.
+
+Only active appointments occupy counselor availability:
+
+- `pending`
+- `booked`
+
+The following statuses do not consume availability:
+
+- `cancelled`
+- `missed`
+- `completed`
+
+When creating or rescheduling an active appointment, the backend checks for another active appointment belonging to the same counselor whose time overlaps.
+
+If an overlap is detected, the API returns:
+
+```http
+409 Conflict
+```
+
+with error code:
+
+```text
+appointment_overlap_warning
+```
+
+The response includes the conflicting appointments and:
+
+```json
+{
+  "can_override": true,
+  "override_field": "allow_overlap"
+}
+```
+
+If the user confirms the overlap, repeat the create/update request with:
+
+```json
+{
+  "allow_overlap": true
+}
+```
+
+The `slot` field on an appointment is optional. This allows forced appointments or appointments outside normal counselor availability.
+
+If a slot is supplied:
+
+- the slot must belong to the same counselor as the appointment
+- the appointment must fit completely inside the selected slot
+
+Use `"slot": null` for appointments intentionally scheduled outside counselor availability.
+
+The counselor slot-status endpoints calculate free/taken segments from active appointments:
+
+```text
+GET /api/counselors/{counselor_id}/slot-status/
+GET /api/counselors/slot-status/
+```
+
+Cancelled, missed, and completed appointments are not returned as occupied availability.
+
 
 
 ## Templates
 
-Templates use [Jinja2](https://jinja.palletsprojects.com/) syntax. Each template is linked to a **purpose**, which defines exactly which variables are available when the template is rendered.
+Templates use [Jinja2](https://jinja.palletsprojects.com/) syntax.
 
-### Discovering available variables
+Each template is identified by a unique `purpose`. The purpose determines which variables are available while rendering.
 
-Before writing a template, fetch the flat variable list for the purpose:
+### List templates
 
+```http
+GET /api/templates/
 ```
 
-GET /api/templates/{purpose}/context-schema/
+### Get one template
 
-````
-
-Example response for `testmail`:
-
-```json
-[
-  {"path": "counselor.first_name", "type": "string"},
-  {"path": "counselor.last_name",  "type": "string"},
-  {"path": "counselor.full_name",  "type": "string"},
-  {"path": "counselor.department", "type": "string"},
-  {"path": "counselor.slots",        "type": "array"},
-  {"path": "counselor.slots[].date",       "type": "date"},
-  {"path": "counselor.slots[].start_time", "type": "time"},
-  {"path": "counselor.slots[].end_time",   "type": "time"}
-]
-````
-
-### Template syntax
-
-**Insert a variable:**
-
-```
-{{ counselor.full_name }}
+```http
+GET /api/templates/{purpose}/
 ```
 
-**Conditional block:**
+Example:
 
-```
-{% if counselor.availability_blocks %}
-  ...
-{% endif %}
+```http
+GET /api/templates/student_invitation/
 ```
 
-**Loop over a list** — use any loop variable name; access its fields with dot notation:
+### Update a template
 
+```http
+PUT /api/templates/{purpose}/update/
+Content-Type: text/plain
 ```
-{% for block in counselor.availability_blocks %}
-  {{ block.date }}  {{ block.start_time }} – {{ block.end_time }}
+
+The request body is the raw template text, not JSON.
+
+Example:
+
+```text
+Dear {{ counselor.full_name }},
+
+Your currently available times are:
+
+{% for slot in counselor.slots %}
+{{ slot.date }} {{ slot.start_time }} - {{ slot.end_time }}
 {% endfor %}
 ```
 
-### End-to-end example with "testmail"
+### Discover available template variables
 
-**1. Create the template** (`PUT /api/templates/create/`): this doesnt exist anymore
-
-```json
-{
-  "name": "Test Availability Mail",
-  "content": "Dear {{ counselor.full_name }},\n\nYour available slots:\n{% for block in counselor.availability_blocks %}\n  - {{ block.date }}  {{ block.start_time }} – {{ block.end_time }}\n{% endfor %}\n\nBest regards",
-  "purposes": ["testmail"]
-}
+```http
+GET /api/templates/{purpose}/context-schema/
 ```
 
-Note the `id` in the response.
+Example:
 
-**2. Render a preview** (`POST /api/templates/generate/testmail/?template_id={id}`): this doesnt exist anymore
+```http
+GET /api/templates/testmail/context-schema/
+```
+
+The response contains variable paths, their types, ready-to-use Jinja directives, and usage descriptions.
+
+Example:
+
+```json
+[
+  {
+    "path": "counselor.full_name",
+    "type": "string",
+    "directive": "{{counselor.full_name}}",
+    "description": "Can be placed to be replaced by the actual value."
+  },
+  {
+    "path": "counselor.slots",
+    "type": "array",
+    "directive": "{% for slot in counselor.slots %}\n\n{% endfor %}",
+    "description": "Place to iterate over the List"
+  }
+]
+```
+
+`counselor.slots` contains the counselor's currently free availability segments after active (`pending` and `booked`) appointments have been removed.
+
+### Render a testmail preview
+
+```http
+POST /api/templates/testmail/render/
+Content-Type: application/json
+```
+
+Request:
 
 ```json
 {
-  "counselor": 1
+  "counselor_id": 1
 }
 ```
 
@@ -260,94 +351,233 @@ Response:
 
 ```json
 {
-  "rendered": "Dear Dr. Jane Smith,\n\nYour available slots:\n\n  - 2026-06-10  09:00:00 – 09:30:00\n  - 2026-06-10  10:00:00 – 10:30:00\n\nBest regards"
+  "rendered": "Dear Dr. Jane Smith..."
 }
 ```
 
+Other purposes have their equivalent render endpoint:
+
+```text
+POST /api/templates/student_invitation/render/
+POST /api/templates/student_reminder/render/
+POST /api/templates/forced_appointment_assignment/render/
+POST /api/templates/appointment_invitation/render/
+POST /api/templates/counselor_preparation_instruction/render/
+POST /api/templates/appointment_cancellation/render/
+POST /api/templates/counselor_availability_request/render/
+POST /api/templates/counselor_appointments_summary/render/
+POST /api/templates/general_mail/render/
+```
+
+PDF templates use:
+
+```text
+POST /api/templates/study_plan/render/
+POST /api/templates/appointment_minutes/render/
+```
+
+and return an `application/pdf` response.
+
 ## Email generation and delivery
 
-The backend supports generating personalized emails from the existing template system.
+The backend generates personalized emails using the template system and stores them before delivery.
 
-Email generation creates two types of database records:
+### Email records
 
-- `EmailBatch`: represents one bulk email operation for a particular purpose.
-- `EmailDelivery`: represents one personalized email for a student or counselor recipient.
+`EmailBatch` represents one email operation for a particular purpose.
 
-Generated email deliveries contain snapshots of the recipient, CC addresses, subject, and rendered body. Changing the source template or student information afterward does not modify already generated emails.
+`EmailDelivery` represents one generated email and may target:
+
+- a student
+- a counselor
+- an external email address
+
+Each delivery stores a snapshot of:
+
+- recipient email
+- CC addresses
+- subject
+- rendered body
+- status
+
+Changing the original template or student/counselor information later does not modify an already-generated delivery.
+
+### Creating an email batch
+
+```http
+POST /api/mailing/batches/
+```
+
+For student/counselor purposes, use `target_ids`.
+
+Example:
+
+```json
+{
+  "purpose": "student_invitation",
+  "target_ids": [1, 2],
+  "send_immediately": false,
+  "generated_pdf_purposes": [],
+  "existing_document_types": [],
+  "uploaded_files": [],
+  "external_recipients": []
+}
+```
+
+`generated_pdf_purposes` may contain multiple PDF templates. Each selected PDF is generated and attached to every applicable delivery.
+
+For a general email to addresses outside the database, use:
+
+```json
+{
+  "purpose": "general_mail",
+  "target_ids": [],
+  "external_recipients": [
+    "person@example.com",
+    "another@example.com"
+  ],
+  "send_immediately": false,
+  "generated_pdf_purposes": [],
+  "existing_document_types": [],
+  "uploaded_files": []
+}
+```
+
+General external emails support uploaded files. Student/appointment documents and generated student PDFs are unavailable because an external recipient has no student context.
+
+### Listing saved batches
+
+```http
+GET /api/mailing/batches/
+```
+
+This returns all stored batches newest first, including their deliveries, statuses, recipient information, and attachment information.
+
+The frontend should use this endpoint to restore the email dashboard after refresh instead of storing batch IDs only in browser storage.
 
 ### Email workflow
 
-Email deliveries use the following statuses:
+Email deliveries use these statuses:
 
-- `draft`: generated for preview and editing.
-- `queued`: ready for the background email worker.
-- `sent`: successfully accepted by the configured email backend.
-- `failed`: sending failed and automatic retry has been exhausted, or the failure was considered permanent.
+- `draft` — generated for preview/editing
+- `queued` — waiting for the background worker
+- `sent` — accepted successfully by the configured SMTP backend
+- `failed` — sending failed permanently or retry attempts were exhausted
 
-Preview mode creates `draft` deliveries. The subject and body may be edited before the batch is queued.
+Draft and failed deliveries may be edited.
 
-Automatic mode creates `queued` deliveries immediately.
+A reviewed draft batch can be queued using:
 
-Failed deliveries may be edited and manually queued for another sending cycle.
+```http
+POST /api/mailing/batches/{batch_id}/send/
+```
+
+A failed individual delivery can be queued again using:
+
+```http
+POST /api/mailing/deliveries/{delivery_id}/resend/
+```
 
 ### Background email worker
 
-Queued emails are processed by a separate Django management command:
+Queued emails are processed by:
 
 ```bash
 python manage.py process_email_queue
 ```
 
-The worker should run as a separate process alongside the Django web server.
+In the Dev Container, this worker is started automatically by Supervisor together with the backend and frontend.
 
-Only one worker should be run for the current implementation.
+Only one email worker should run with the current database-backed queue implementation.
 
-For development and testing, one ready email can be processed and the command can then exit:
+For manual development/testing, one ready email can be processed and the command can then exit:
 
 ```bash
 python manage.py process_email_queue --once
 ```
 
-The project intentionally uses this small database-backed queue instead of Celery or Redis because the expected email volume and deployment size do not currently justify additional queue infrastructure.
-
 ### Retry behavior
 
 Each sending cycle permits two attempts by default.
 
-A temporary SMTP or network failure schedules one automatic retry. When the retry also fails, the delivery becomes `failed`.
+Temporary SMTP/network failures are scheduled for automatic retry.
 
-Permanent SMTP failures are marked as `failed` without an unnecessary retry.
+Permanent SMTP failures become `failed` immediately.
 
-The administrator can inspect the failure, edit the generated email if necessary, and manually resend it.
+After retry attempts are exhausted, a delivery becomes `failed` and may be inspected, edited, and manually resent.
 
-### Email configuration
+### Email account settings
 
-Development uses Django's console email backend by default so emails are printed to the backend terminal instead of being sent externally.
+SMTP credentials and visible sender information can be configured from the application settings page.
 
-Real SMTP sending is configured using environment variables.
-
-Supported settings include:
+Backend endpoints:
 
 ```text
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=email.uni-rostock.de
-EMAIL_PORT=587
-EMAIL_USE_TLS=true
-EMAIL_HOST_USER=<ITMZ user ID>
-EMAIL_HOST_PASSWORD=<password>
-DEFAULT_FROM_EMAIL=<university email address>
-
-EMAIL_MAX_SEND_ATTEMPTS=2
-EMAIL_RETRY_DELAY_SECONDS=60
-EMAIL_SEND_INTERVAL_SECONDS=4
-EMAIL_QUEUE_POLL_INTERVAL_SECONDS=5
+GET    /api/mailing/settings/
+PUT    /api/mailing/settings/
+DELETE /api/mailing/settings/
+POST   /api/mailing/settings/test/
 ```
 
-Credentials must not be hard-coded into Django settings or committed to Git.
+Example update:
+
+```json
+{
+  "smtp_host": "email.uni-rostock.de",
+  "smtp_port": 587,
+  "use_tls": true,
+  "smtp_username": "university-user-id",
+  "password": "password",
+  "from_name": "Prof. Jane Smith",
+  "from_email": "jane.smith@uni-rostock.de",
+  "persist_credentials": true
+}
+```
+
+The password is write-only and is never returned through the API.
+
+Instead, the settings response contains:
+
+```json
+{
+  "password_configured": true
+}
+```
+
+When `persist_credentials` is `true`, the credentials are stored persistently and the password is encrypted before storage.
+
+When `persist_credentials` is `false`, they are kept in temporary container runtime storage rather than in the database.
+
+The SMTP connection can be tested without sending an email:
+
+```http
+POST /api/mailing/settings/test/
+```
+
+Successful response:
+
+```json
+{
+  "ok": true
+}
+```
+
+### Email sender headers
+
+Outgoing messages use the configured sender name and email address:
+
+```text
+From: Prof. Jane Smith <jane.smith@uni-rostock.de>
+Reply-To: jane.smith@uni-rostock.de
+```
+
+The SMTP username is used for authentication and does not need to be the visible sender name.
+
+The application uses Django's SMTP email backend by default.
 
 ### Frontend status polling
 
-The frontend can poll:
+The frontend may poll:
 
 ```text
 GET /api/mailing/batches/{batch_id}/status/
@@ -355,31 +585,13 @@ GET /api/mailing/batches/{batch_id}/status/
 
 while a batch is being processed.
 
-The response includes counts for draft, queued, sent, and failed deliveries as well as delivery-level status information.
+The response includes:
 
-Polling every few seconds while the relevant page is open is sufficient. WebSockets are not required for the current application.
+- total deliveries
+- draft count
+- queued count
+- sent count
+- failed count
+- individual delivery statuses
 
-### Semester cleanup
-
-Email batches, deliveries, and email attachment snapshots are semester-specific data.
-
-Semester cleanup removes:
-
-- email batches and deliveries
-- temporary uploaded email attachments
-- snapshots of existing documents attached to emails
-- generated PDF documents owned by email attachments
-- appointments
-- students
-- counselor availability slots
-- student and appointment documents
-
-Persistent counselors and reusable templates are preserved.
-
-Original student or appointment documents referenced by an email attachment are never deleted merely because the email attachment is removed. They are deleted only according to their normal student/appointment lifecycle.
-
-If temporary attachment cleanup fails after an email has already been sent, the email remains `sent` and the attachment stores the cleanup error. Cleanup can be retried with:
-
-```bash
-python manage.py cleanup_email_attachments
-```
+Polling every few seconds while the mail page is open is sufficient. WebSockets are not required for the current application.
