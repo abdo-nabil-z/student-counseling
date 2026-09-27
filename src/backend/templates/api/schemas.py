@@ -2,13 +2,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiTypes
 from rest_framework import serializers
 
 from consultation_backend.api_serializers import APIErrorResponseSerializer
-from templates.api.serializers import (
-    TemplateSerializer,
-    CounselorRenderSerializer,
-    StudentRenderSerializer,
-    StudentCounselorRenderSerializer,
-    ExternalRecipientRenderSerializer,
-)
+from templates.api.serializers import TemplateSerializer
 
 # ── Shared response fragments ────────────────────────────────────────────────
 
@@ -19,32 +13,14 @@ _render_success = inline_serializer(
 )
 
 
-def _render_schema(request_serializer_class, description):
-    return extend_schema(
-        request=request_serializer_class,
-        responses={
-            200: _render_success,
-            400: APIErrorResponseSerializer,
-            404: APIErrorResponseSerializer,
-            422: APIErrorResponseSerializer,
-            501: APIErrorResponseSerializer,
-        },
-        description=description,
-    )
-
-
-def _pdf_render_schema(request_serializer_class, description):
-    return extend_schema(
-        request=request_serializer_class,
-        responses={
-            (200, "application/pdf"): OpenApiTypes.BINARY,
-            400: APIErrorResponseSerializer,
-            404: APIErrorResponseSerializer,
-            422: APIErrorResponseSerializer,
-            501: APIErrorResponseSerializer,
-        },
-        description=description,
-    )
+_render_purpose_request = inline_serializer(
+    name="RenderPurposeRequest",
+    fields={
+        "counselor_id": serializers.IntegerField(required=False),
+        "student_id": serializers.IntegerField(required=False),
+        "appointment_id": serializers.IntegerField(required=False),
+    },
+)
 
 
 # ── Template CRUD ────────────────────────────────────────────────────────────
@@ -103,75 +79,31 @@ purpose_context_schema = extend_schema(
     ),
 )
 
-# ── Render endpoints ─────────────────────────────────────────────────────────
+# ── Render endpoint ──────────────────────────────────────────────────────────
 
-render_testmail = _render_schema(
-    CounselorRenderSerializer,
-    (
-        "Render the testmail template for a counselor, injecting "
-        "their currently free availability segments after pending "
-        "and booked appointments have been removed."
+render_purpose = extend_schema(
+    request=_render_purpose_request,
+    responses={
+        200: _render_success,
+        (200, "application/pdf"): OpenApiTypes.BINARY,
+        400: APIErrorResponseSerializer,
+        404: APIErrorResponseSerializer,
+        422: APIErrorResponseSerializer,
+        501: APIErrorResponseSerializer,
+    },
+    description=(
+        "Render the template for the given purpose. Returns JSON "
+        '`{"rendered": ...}` for email purposes, or a PDF binary for document '
+        "purposes (study_plan, appointment_minutes).\n\n"
+        "Required fields by purpose:\n"
+        "- counselor_id only: testmail, counselor_availability_request, "
+        "counselor_appointments_summary\n"
+        "- student_id only: student_invitation, student_reminder, study_plan\n"
+        "- student_id + counselor_id + appointment_id: "
+        "forced_appointment_assignment, appointment_invitation, "
+        "counselor_preparation_instruction, appointment_cancellation, "
+        "appointment_minutes"
     ),
-)
-
-render_student_invitation = _render_schema(
-    StudentRenderSerializer,
-    "Render the student invitation email template for a student.",
-)
-
-render_student_reminder = _render_schema(
-    StudentRenderSerializer,
-    "Render the student reminder email template for a student.",
-)
-
-render_forced_appointment_assignment = _render_schema(
-    StudentCounselorRenderSerializer,
-    "Render the forced appointment assignment email template.",
-)
-
-render_appointment_invitation = _render_schema(
-    StudentCounselorRenderSerializer,
-    "Render the appointment invitation email template.",
-)
-
-render_counselor_preparation_instruction = _render_schema(
-    StudentCounselorRenderSerializer,
-    "Render the counselor preparation instruction email template.",
-)
-
-render_appointment_cancellation = _render_schema(
-    StudentCounselorRenderSerializer,
-    "Render the appointment cancellation email template.",
-)
-
-render_study_plan = _pdf_render_schema(
-    StudentRenderSerializer,
-    "Render the study_plan template into a PDF.",
-)
-
-render_appointment_minutes = _pdf_render_schema(
-    StudentCounselorRenderSerializer,
-    "Render the appointment_minutes template into a PDF.",
-)
-
-render_counselor_availability_request = (
-    _render_schema(
-        CounselorRenderSerializer,
-        (
-            "Render the counselor availability "
-            "request email template."
-        ),
-    )
-)
-
-render_counselor_appointments_summary = (
-    _render_schema(
-        CounselorRenderSerializer,
-        (
-            "Render the accepted appointments "
-            "summary email for a counselor."
-        ),
-    )
 )
 
 
