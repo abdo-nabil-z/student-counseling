@@ -2,7 +2,6 @@ from django.db import models
 
 
 class Purpose(models.TextChoices):
-    TESTMAIL = "testmail", "Test Mail"
     STUDENT_INVITATION_MAIL = "student_invitation", "Initial Invitation (Student)"
     STUDENT_REMINDER_MAIL = "student_reminder", "Reminder (Student)"
     FORCED_APPOINTMENT_ASSIGNMENT_MAIL = "forced_appointment_assignment", "Forced Appointment Assignment"
@@ -11,10 +10,11 @@ class Purpose(models.TextChoices):
     APPOINTMENT_CANCELLATION_MAIL = "appointment_cancellation", "Appointment Cancellation"
     COUNSELOR_AVAILABILITY_REQUEST_MAIL = "counselor_availability_request", "Availability Request (Counselor)"
     COUNSELOR_APPOINTMENTS_SUMMARY_MAIL = "counselor_appointments_summary", "Accepted Appointments Summary (Counselor)"
-    GENERAL_MAIL = "general_mail", "General Email"
+    GENERIC_MAIL = "generic_mail", "Generic Mail"
 
     STUDY_PLAN = "study_plan", "Study Plan"
     APPOINTMENT_MINUTES = "appointment_minutes", "Appointment Minutes"
+    GENERIC_PDF = "generic_pdf", "Generic PDF "
 
 
 class Template(models.Model):

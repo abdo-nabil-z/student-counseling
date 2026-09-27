@@ -268,13 +268,38 @@ GET /api/templates/
 
 ```http
 GET /api/templates/{purpose}/
+````
+
+Example response for `generic_mail`:
+
+```json
+[
+  {"path": "counselor.first_name", "type": "string"},
+  {"path": "counselor.last_name",  "type": "string"},
+  {"path": "counselor.full_name",  "type": "string"},
+  {"path": "counselor.department", "type": "string"},
+  {"path": "counselor.slots",        "type": "array"},
+  {"path": "counselor.slots[].date",       "type": "date"},
+  {"path": "counselor.slots[].start_time", "type": "time"},
+  {"path": "counselor.slots[].end_time",   "type": "time"}
+]
 ```
+
 
 Example:
 
 ```http
 GET /api/templates/student_invitation/
 ```
+
+### Template syntax
+
+**Insert a variable:**
+
+```
+{{ counselor.full_name }}
+```
+
 
 ### Update a template
 
@@ -301,6 +326,18 @@ Your currently available times are:
 
 ```http
 GET /api/templates/{purpose}/context-schema/
+```
+
+### End-to-end example with "generic_mail"
+
+**1. Create the template** (`PUT /api/templates/create/`): this doesnt exist anymore
+
+```json
+{
+  "name": "Test Availability Mail",
+  "content": "Dear {{ counselor.full_name }},\n\nYour available slots:\n{% for block in counselor.availability_blocks %}\n  - {{ block.date }}  {{ block.start_time }} – {{ block.end_time }}\n{% endfor %}\n\nBest regards",
+  "purposes": ["generic_mail"]
+}
 ```
 
 Example:
@@ -340,6 +377,7 @@ Content-Type: application/json
 ```
 
 Request:
+**2. Render a preview** (`POST /api/templates/generate/generic_mail/?template_id={id}`): this doesnt exist anymore
 
 ```json
 {

@@ -27,7 +27,6 @@ from pdf.rendering import render_template_to_pdf
 
 # Which request serializer a purpose needs, keyed the same as PURPOSE_CONTEXT_REGISTRY.
 PURPOSE_SERIALIZER_REGISTRY: dict[str, type] = {
-    Purpose.TESTMAIL: CounselorRenderSerializer,
     Purpose.STUDENT_INVITATION_MAIL: StudentRenderSerializer,
     Purpose.STUDENT_REMINDER_MAIL: StudentRenderSerializer,
     Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL: StudentCounselorRenderSerializer,
@@ -38,6 +37,8 @@ PURPOSE_SERIALIZER_REGISTRY: dict[str, type] = {
     Purpose.APPOINTMENT_MINUTES: StudentCounselorRenderSerializer,
     Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorRenderSerializer,
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorRenderSerializer,
+    Purpose.GENERIC_MAIL: StudentCounselorRenderSerializer,
+    Purpose.GENERIC_PDF: StudentCounselorRenderSerializer,
 }
 
 logger = logging.getLogger(__name__)

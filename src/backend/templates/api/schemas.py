@@ -94,15 +94,15 @@ render_purpose = extend_schema(
     description=(
         "Render the template for the given purpose. Returns JSON "
         '`{"rendered": ...}` for email purposes, or a PDF binary for document '
-        "purposes (study_plan, appointment_minutes).\n\n"
+        "purposes (study_plan, appointment_minutes, generic_pdf).\n\n"
         "Required fields by purpose:\n"
-        "- counselor_id only: testmail, counselor_availability_request, "
+        "- counselor_id only: counselor_availability_request, "
         "counselor_appointments_summary\n"
         "- student_id only: student_invitation, student_reminder, study_plan\n"
         "- student_id + counselor_id + appointment_id: "
         "forced_appointment_assignment, appointment_invitation, "
         "counselor_preparation_instruction, appointment_cancellation, "
-        "appointment_minutes"
+        "appointment_minutes, generic_mail, generic_pdf\n\n"
     ),
 )
 
