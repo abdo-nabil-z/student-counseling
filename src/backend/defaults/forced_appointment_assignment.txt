@@ -1,0 +1,8 @@
+Dear {{ student.first_name }} {{ student.last_name }},
+
+You have been assigned a consultation appointment with {{ counselor.title }} {{ counselor.full_name }} on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} at {{ appointment.location }}.
+
+If this time does not work for you, please contact us as soon as possible.
+
+Best regards,
+The Consultation Team

@@ -1,0 +1,8 @@
+Dear {{ student.first_name }} {{ student.last_name }},
+
+Your consultation appointment with {{ counselor.title }} {{ counselor.full_name }} on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} has been cancelled.
+
+Please get in touch with us if you would like to schedule a new appointment.
+
+Best regards,
+The Consultation Team

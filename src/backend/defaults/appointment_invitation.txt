@@ -1,0 +1,8 @@
+Dear {{ student.first_name }} {{ student.last_name }},
+
+Your consultation appointment with {{ counselor.title }} {{ counselor.full_name }} has been confirmed for {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} at {{ appointment.location }}.
+
+We look forward to seeing you.
+
+Best regards,
+The Consultation Team
