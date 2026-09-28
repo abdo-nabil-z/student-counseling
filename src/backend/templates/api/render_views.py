@@ -37,8 +37,7 @@ PURPOSE_SERIALIZER_REGISTRY: dict[str, type] = {
     Purpose.APPOINTMENT_MINUTES: StudentCounselorRenderSerializer,
     Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorRenderSerializer,
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorRenderSerializer,
-    Purpose.GENERIC_MAIL: StudentCounselorRenderSerializer,
-    Purpose.GENERIC_PDF: StudentCounselorRenderSerializer,
+    Purpose.GENERAL_MAIL: ExternalRecipientRenderSerializer,
 }
 
 logger = logging.getLogger(__name__)

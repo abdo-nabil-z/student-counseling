@@ -24,10 +24,8 @@ DEFAULT_FILES: dict[str, str] = {
     Purpose.APPOINTMENT_CANCELLATION_MAIL: "appointment_cancellation.txt",
     Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: "counselor_availability_request.txt",
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: "counselor_appointments_summary.txt",
-    Purpose.GENERIC_MAIL: "generic_mail.txt",
     Purpose.STUDY_PLAN: "study_plan.md",
     Purpose.APPOINTMENT_MINUTES: "appointment_minutes.md",
-    Purpose.GENERIC_PDF: "generic_pdf.md",
 }
 
 

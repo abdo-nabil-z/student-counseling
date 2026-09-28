@@ -270,7 +270,7 @@ GET /api/templates/
 GET /api/templates/{purpose}/
 ````
 
-Example response for `generic_mail`:
+Example response for `counselor_availability_request`:
 
 ```json
 [
@@ -328,7 +328,7 @@ Your currently available times are:
 GET /api/templates/{purpose}/context-schema/
 ```
 
-### End-to-end example with "generic_mail"
+### End-to-end example with "counselor_availability_request"
 
 **1. Create the template** (`PUT /api/templates/create/`): this doesnt exist anymore
 
@@ -336,7 +336,7 @@ GET /api/templates/{purpose}/context-schema/
 {
   "name": "Test Availability Mail",
   "content": "Dear {{ counselor.full_name }},\n\nYour available slots:\n{% for block in counselor.availability_blocks %}\n  - {{ block.date }}  {{ block.start_time }} – {{ block.end_time }}\n{% endfor %}\n\nBest regards",
-  "purposes": ["generic_mail"]
+  "purposes": ["counselor_availability_request"]
 }
 ```
 
@@ -377,7 +377,7 @@ Content-Type: application/json
 ```
 
 Request:
-**2. Render a preview** (`POST /api/templates/generate/generic_mail/?template_id={id}`): this doesnt exist anymore
+**2. Render a preview** (`POST /api/templates/generate/counselor_availability_request/?template_id={id}`): this doesnt exist anymore
 
 ```json
 {

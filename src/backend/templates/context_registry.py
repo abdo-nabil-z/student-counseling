@@ -135,62 +135,6 @@ class ExternalRecipientContext(BaseModel):
     def build(cls, recipient_email: str) -> "ExternalRecipientContext":
         return cls(recipient_email=recipient_email)
 
-    
-def _build_all_contexts_kwargs(student_id: int, counselor_id: int, appointment_id: int) -> dict:
-    """Gather every context field used by any purpose, keyed by field name."""
-    student = StudentContext.from_model(Student.objects.get(id=student_id))
-    counselor = CounselorContext.from_model(Counselor.objects.get(id=counselor_id))
-    appointment = AppointmentContext.from_model(Appointment.objects.get(id=appointment_id))
-
-    appointments = (
-        Appointment.objects
-        .filter(counselor_id=counselor_id, status=Appointment.Status.BOOKED)
-        .select_related("student")
-        .order_by("start_time", "id")
-    )
-    appointment_items = [
-        CounselorAppointmentItemContext(
-            student=StudentContext.from_model(appointment_item.student),
-            appointment=AppointmentContext.from_model(appointment_item),
-        )
-        for appointment_item in appointments
-    ]
-
-    return {
-        "student": student,
-        "counselor": counselor,
-        "appointment": appointment,
-        "appointments": appointment_items,
-        "available_slots": AllAvailableSlotsContext.build(),
-    }
-
-
-class AllContextFields(BaseModel):
-    """Shared field set exposing every context field used by any purpose."""
-    student: StudentContext
-    counselor: CounselorContext
-    appointment: AppointmentContext
-    appointments: list[CounselorAppointmentItemContext]
-    available_slots: AllAvailableSlotsContext
-
-
-class GenericMailContext(AllContextFields):
-    """Generic email purpose exposing every context field, for ad-hoc/test templates."""
-
-    @classmethod
-    def build(cls, student_id: int, counselor_id: int, appointment_id: int) -> "GenericMailContext":
-        return cls(**_build_all_contexts_kwargs(student_id, counselor_id, appointment_id))
-
-
-class GenericPDFContext(PDFContext, AllContextFields):
-    """Generic PDF purpose exposing every context field, for ad-hoc/test templates."""
-
-    @classmethod
-    def build(cls, student_id: int, counselor_id: int, appointment_id: int) -> "GenericPDFContext":
-        return cls(**_build_all_contexts_kwargs(student_id, counselor_id, appointment_id))    @classmethod
-  
-
-
 
 # ── Registry ────────────────────────────────────────────────────────────────
 # Add one entry here for every new Purpose value.
@@ -205,9 +149,7 @@ PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
     Purpose.APPOINTMENT_MINUTES: AppointmentMinutesContext,
     Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorOnlyContext,
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorAppointmentsContext,
-    Purpose.GENERAL_MAIL: ExternalRecipientContext
-    Purpose.GENERIC_MAIL: GenericMailContext,
-    Purpose.GENERIC_PDF: GenericPDFContext,
+    Purpose.GENERAL_MAIL: ExternalRecipientContext,
 }
 
 

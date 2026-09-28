@@ -1,6 +1,0 @@
-Dear {{ student.full_name }},
-
-This is a generic message regarding your appointment with {{ counselor.title }} {{ counselor.full_name }} on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }}.
-
-Best regards,
-The Consultation Team
