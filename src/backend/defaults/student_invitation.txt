@@ -1,0 +1,10 @@
+Dear {{ student.first_name }} {{ student.last_name }},
+
+You are invited to schedule a consultation appointment. Please choose one of the following available time slots and reply to this email with your preference:
+
+{% for slot in available_slots.slots %}
+- {{ slot.date }} from {{ slot.start_time }} to {{ slot.end_time }}
+{% endfor %}
+
+Best regards,
+The Consultation Team
