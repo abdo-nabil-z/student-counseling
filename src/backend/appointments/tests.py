@@ -263,3 +263,78 @@ class AppointmentTimezoneTests(TestCase):
             context.end_time.hour,
             16,
         )
+
+
+class AppointmentContactStatusTests(APITestCase):
+    def setUp(self):
+        self.counselor = Counselor.objects.create(
+            title="Prof.",
+            first_name="Status",
+            last_name="Counselor",
+            chair="Institute",
+            office_address="Room 1",
+            email="status.counselor@example.com",
+        )
+
+        self.student = Student.objects.create(
+            matriculation_number="720000001",
+            first_name="Status",
+            last_name="Student",
+            email="status.student@example.com",
+        )
+
+    def test_creating_booked_appointment_marks_student_confirmed(self):
+        response = self.client.post(
+            "/api/appointments/create-appointment/",
+            {
+                "student": self.student.pk,
+                "counselor": self.counselor.pk,
+                "slot": None,
+                "start_time": "2026-10-10T10:00:00+02:00",
+                "duration_minutes": 30,
+                "location": "Room 1",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+        self.student.refresh_from_db()
+
+        self.assertEqual(
+            self.student.contact_status,
+            Student.ContactStatus.CONFIRMED,
+        )
+
+    def test_changing_pending_appointment_to_booked_marks_student_confirmed(self):
+        appointment = Appointment.objects.create(
+            student=self.student,
+            counselor=self.counselor,
+            start_time=datetime(
+                2026,
+                10,
+                10,
+                11,
+                0,
+                tzinfo=ZoneInfo("Europe/Berlin"),
+            ),
+            duration_minutes=30,
+            status=Appointment.Status.PENDING,
+        )
+
+        response = self.client.patch(
+            f"/api/appointments/{appointment.pk}/",
+            {
+                "status": Appointment.Status.BOOKED,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.student.refresh_from_db()
+
+        self.assertEqual(
+            self.student.contact_status,
+            Student.ContactStatus.CONFIRMED,
+        )

@@ -1,3 +1,5 @@
+import csv
+import io
 from datetime import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -349,4 +351,160 @@ class SemesterCleanupServiceTests(TestCase):
 
         self.assertFalse(
             storage.exists(stored_name)
+        )
+
+
+class StudentContactStatusAPITests(APITestCase):
+    def setUp(self):
+        self.student = Student.objects.create(
+            matriculation_number="700000001",
+            first_name="Manual",
+            last_name="Status",
+            email="manual.status@example.com",
+        )
+
+    def test_contact_status_can_still_be_edited_manually(self):
+        response = self.client.patch(
+            f"/api/students/{self.student.pk}/",
+            {
+                "contact_status": Student.ContactStatus.DIDNT_RESPOND,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.student.refresh_from_db()
+
+        self.assertEqual(
+            self.student.contact_status,
+            Student.ContactStatus.DIDNT_RESPOND,
+        )
+
+
+class SemesterReportAPITests(APITestCase):
+    def setUp(self):
+        self.counselor = Counselor.objects.create(
+            title="Prof.",
+            first_name="Report",
+            last_name="Counselor",
+            chair="Institute",
+            office_address="Room 1",
+            email="report.counselor@example.com",
+        )
+
+        self.initial_plan = Document.objects.create(
+            file="documents/initial-plan.pdf",
+            name="Initial Plan",
+        )
+
+        self.final_plan = Document.objects.create(
+            file="documents/final-plan.pdf",
+            name="Final Plan",
+        )
+
+        self.minutes = Document.objects.create(
+            file="documents/minutes.pdf",
+            name="Appointment Minutes",
+        )
+
+        self.student_with_appointment = Student.objects.create(
+            matriculation_number="710000001",
+            first_name="Alice",
+            last_name="Report",
+            email="alice.report@example.com",
+            contact_status=Student.ContactStatus.CONFIRMED,
+            initial_study_plan=self.initial_plan,
+            final_study_plan=self.final_plan,
+        )
+
+        self.student_without_appointment = Student.objects.create(
+            matriculation_number="710000002",
+            first_name="Bob",
+            last_name="Report",
+            email="bob.report@example.com",
+        )
+
+        self.appointment = Appointment.objects.create(
+            student=self.student_with_appointment,
+            counselor=self.counselor,
+            start_time=timezone.now(),
+            duration_minutes=30,
+            status=Appointment.Status.BOOKED,
+            location="Room 1",
+            minutes=self.minutes,
+        )
+
+    def test_semester_report_contains_students_appointments_and_documents(self):
+        response = self.client.get(
+            "/api/students/semester-report/"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertTrue(
+            response["Content-Type"].startswith("text/csv")
+        )
+
+        self.assertIn(
+            "semester_report.csv",
+            response["Content-Disposition"],
+        )
+
+        rows = list(
+            csv.DictReader(
+                io.StringIO(
+                    response.content.decode("utf-8")
+                )
+            )
+        )
+
+        self.assertEqual(len(rows), 2)
+
+        rows_by_matriculation = {
+            row["matriculation_number"]: row
+            for row in rows
+        }
+
+        appointment_row = rows_by_matriculation[
+            "710000001"
+        ]
+
+        self.assertEqual(
+            appointment_row["appointment_id"],
+            str(self.appointment.pk),
+        )
+
+        self.assertEqual(
+            appointment_row["appointment_status"],
+            Appointment.Status.BOOKED,
+        )
+
+        self.assertEqual(
+            appointment_row["initial_study_plan_name"],
+            "Initial Plan",
+        )
+
+        self.assertEqual(
+            appointment_row["final_study_plan_name"],
+            "Final Plan",
+        )
+
+        self.assertEqual(
+            appointment_row["appointment_minutes_name"],
+            "Appointment Minutes",
+        )
+
+        no_appointment_row = rows_by_matriculation[
+            "710000002"
+        ]
+
+        self.assertEqual(
+            no_appointment_row["appointment_id"],
+            "",
+        )
+
+        self.assertEqual(
+            no_appointment_row["appointment_status"],
+            "",
         )

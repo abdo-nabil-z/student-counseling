@@ -159,6 +159,13 @@ class EmailSendingServiceTests(TestCase):
             self.delivery.sent_at
         )
 
+        self.student.refresh_from_db()
+
+        self.assertEqual(
+            self.student.contact_status,
+            Student.ContactStatus.EMAILED,
+        )
+
     def test_send_failure_is_recorded_and_reraised(
         self,
     ):
@@ -198,6 +205,13 @@ class EmailSendingServiceTests(TestCase):
 
         self.assertIsNone(
             self.delivery.sent_at
+        )
+
+        self.student.refresh_from_db()
+
+        self.assertEqual(
+            self.student.contact_status,
+            Student.ContactStatus.NOT_CONTACTED_YET,
         )
 
     def test_non_queued_delivery_cannot_be_sent(
@@ -528,3 +542,17 @@ class EmailSendingServiceTests(TestCase):
         self.assertTrue(
             Document.objects.filter(pk=document.pk).exists()
         )   
+
+
+    def test_successful_email_does_not_downgrade_confirmed_student(self):
+        self.student.contact_status = Student.ContactStatus.CONFIRMED
+        self.student.save(update_fields=["contact_status"])
+
+        send_email_delivery_once(self.delivery)
+
+        self.student.refresh_from_db()
+
+        self.assertEqual(
+            self.student.contact_status,
+            Student.ContactStatus.CONFIRMED,
+        )

@@ -8,6 +8,7 @@ from students.api.views import (
     cleanup_semester_data,
     StudentImportPreviewView,
     StudentImportConfirmView,
+    export_semester_report,
 )
 
 app_name = "students_api"
@@ -19,6 +20,7 @@ urlpatterns = [
     path("import/confirm/", StudentImportConfirmView.as_view(), name="import-confirm"),
 
     path("semester-cleanup/", cleanup_semester_data, name="semester-cleanup"),
+    path("semester-report/", export_semester_report, name="semester-report"), 
 
     path("<int:student_id>/", detail_student, name="detail-student"),
 
