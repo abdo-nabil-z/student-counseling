@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Student } from "../types/student";
 import Modal from "../components/common/Model";
 import api from "../api/client";
-// import { openMailClient } from "../types/Mailto";
+
 function EditIcon() {
   return (
     <svg
@@ -22,6 +22,26 @@ function EditIcon() {
     </svg>
   );
 }
+
+function MailIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-10 6L2 7" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg
@@ -55,8 +75,40 @@ const EMPTY: Student = {
   contact_status: "not_contacted_yet",
 };
 
+const MAX_DISPLAY_FILENAME_LENGTH = 10;
+
+function formatFileName(fileName: string): string {
+  if (fileName.length <= MAX_DISPLAY_FILENAME_LENGTH) {
+    return fileName;
+  }
+
+  const lastDot = fileName.lastIndexOf(".");
+
+  // If the filename has no extension, simply truncate it.
+  if (lastDot <= 0 || lastDot === fileName.length - 1) {
+    return `${fileName.slice(0, MAX_DISPLAY_FILENAME_LENGTH - 3)}...`;
+  }
+
+  const extension = fileName.slice(lastDot);
+  const nameWithoutExtension = fileName.slice(0, lastDot);
+
+  // Number of characters available for the filename itself,
+  // after accounting for "..." and the extension.
+  const availableNameLength =
+    MAX_DISPLAY_FILENAME_LENGTH - extension.length - 3;
+
+  // If the extension itself is very long, keep the extension
+  // and show an ellipsis before it.
+  if (availableNameLength <= 0) {
+    return `...${extension}`;
+  }
+
+  return nameWithoutExtension.slice(0, availableNameLength) + "..." + extension;
+}
+
 function StudentsPage() {
   const navigate = useNavigate();
+
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +117,7 @@ function StudentsPage() {
 
   function load() {
     setLoading(true);
+
     api
       .get<Student[]>("/students/")
       .then((res) => setStudents(res.data))
@@ -86,14 +139,21 @@ function StudentsPage() {
     });
   }
 
+  /**
+   * Upload OR replace a study plan.
+   * The backend POST endpoint replaces any existing document,
+   * so the same call covers both "upload" and "modify".
+   */
   async function uploadPlan(
     studentId: number,
     which: "initial" | "final",
     file: File,
   ) {
     const fd = new FormData();
+
     fd.append("file", file);
     fd.append("name", file.name);
+
     try {
       await api.post(`/students/${studentId}/${which}-study-plan/`, fd);
       load();
@@ -104,7 +164,9 @@ function StudentsPage() {
 
   async function saveDraft() {
     if (!draft) return;
+
     setSaving(true);
+
     const payload = {
       matriculation_number: draft.matriculation_number,
       first_name: draft.first_name,
@@ -115,13 +177,22 @@ function StudentsPage() {
       credit_points: Number(draft.credit_points),
       contact_status: draft.contact_status,
     };
+
     try {
-      if (draft.id) await api.patch(`/students/${draft.id}/`, payload);
-      else await api.post("/students/", payload);
+      if (draft.id) {
+        await api.patch(`/students/${draft.id}/`, payload);
+      } else {
+        await api.post("/students/", payload);
+      }
+
       setDraft(null);
       load();
     } catch (err) {
-      const e = err as { response?: { data?: unknown }; message: string };
+      const e = err as {
+        response?: { data?: unknown };
+        message: string;
+      };
+
       alert(
         "Save failed: " +
           (e.response?.data ? JSON.stringify(e.response.data) : e.message),
@@ -131,8 +202,25 @@ function StudentsPage() {
     }
   }
 
+  /**
+   * Delete a study-plan document.
+   * The Student FK is on_delete=SET_NULL,
+   * so removing the Document automatically clears the student's link.
+   */
+  async function deletePlan(docId: number) {
+    if (!window.confirm("Delete this study plan?")) return;
+
+    try {
+      await api.delete(`/documents/${docId}/`);
+      load();
+    } catch (err) {
+      alert("Delete failed: " + (err as Error).message);
+    }
+  }
+
   async function removeStudent(s: Student) {
     if (!window.confirm(`Delete ${s.first_name} ${s.last_name}?`)) return;
+
     try {
       await api.delete(`/students/${s.id}/`);
       load();
@@ -143,26 +231,100 @@ function StudentsPage() {
 
   function PlanCell({ s, which }: { s: Student; which: "initial" | "final" }) {
     const doc = which === "initial" ? s.initial_study_plan : s.final_study_plan;
-    if (doc) {
-      return (
-        <a href={doc.download_url} target="_blank" rel="noreferrer">
-          {doc.name}
-        </a>
-      );
-    }
-    return (
-      <label className="icon-btn" title="Upload study plan">
-        Upload
+
+    const filePicker = (labelText: string, hint: string) => (
+      <label
+        title={hint}
+        style={{
+          cursor: "pointer",
+          color: "#5b5bef",
+          fontSize: "13px",
+          fontWeight: 500,
+        }}
+      >
+        {labelText}
+
         <input
           type="file"
           style={{ display: "none" }}
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) uploadPlan(s.id, which, f);
+
+            if (f) {
+              uploadPlan(s.id, which, f);
+            }
+
             e.target.value = "";
           }}
         />
       </label>
+    );
+
+    // A document already exists: show the filename and actions.
+    if (doc) {
+      return (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: "2px",
+          }}
+        >
+          <a
+            href={doc.download_url}
+            target="_blank"
+            rel="noreferrer"
+            title={doc.name}
+            style={{
+              display: "inline-block",
+              maxWidth: "160px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {formatFileName(doc.name)}
+          </a>
+
+          <span
+            style={{
+              display: "inline-flex",
+              gap: "10px",
+              alignItems: "center",
+            }}
+          >
+            {filePicker("Modify", "Modify study plan")}
+
+            <button
+              type="button"
+              onClick={() => deletePlan(doc.id)}
+              title="Delete study plan"
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                color: "#c0392b",
+                fontSize: "13px",
+                fontWeight: 500,
+              }}
+            >
+              Delete
+            </button>
+          </span>
+        </div>
+      );
+    }
+
+    // No document yet: show upload action.
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        {filePicker("Upload", "Upload study plan")}
+      </div>
     );
   }
 
@@ -170,10 +332,12 @@ function StudentsPage() {
     <section>
       <div className="page-header">
         <h2>Students</h2>
+
         <button onClick={() => setDraft({ ...EMPTY })}>Add Student</button>
       </div>
 
       {loading && <p>Loading…</p>}
+
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
       {!loading && !error && (
@@ -193,29 +357,40 @@ function StudentsPage() {
                 <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {students.length === 0 && (
                 <tr>
                   <td colSpan={10}>No students yet.</td>
                 </tr>
               )}
+
               {students.map((s) => (
                 <tr key={s.id}>
                   <td>{s.matriculation_number}</td>
+
                   <td>
                     {s.first_name} {s.last_name}
                   </td>
+
                   <td>{s.email}</td>
+
                   <td>{s.course_of_studies}</td>
+
                   <td>{s.current_study_semester}</td>
+
                   <td>{s.credit_points === -1 ? "—" : s.credit_points}</td>
+
                   <td>{s.contact_status}</td>
+
                   <td>
                     <PlanCell s={s} which="initial" />
                   </td>
+
                   <td>
                     <PlanCell s={s} which="final" />
                   </td>
+
                   <td>
                     <button
                       className="icon-btn"
@@ -225,7 +400,16 @@ function StudentsPage() {
                     >
                       <EditIcon />
                     </button>
-                    <button onClick={() => openMails(s)}>Mails</button>
+
+                    <button
+                      className="icon-btn"
+                      title="Mails"
+                      aria-label="Mails"
+                      onClick={() => openMails(s)}
+                    >
+                      <MailIcon />
+                    </button>
+
                     <button
                       className="icon-btn icon-btn--danger"
                       title="Delete"
@@ -249,39 +433,67 @@ function StudentsPage() {
         >
           <div className="card">
             <label>Matriculation No.</label>
+
             <input
               value={draft.matriculation_number}
               onChange={(e) =>
-                setDraft({ ...draft, matriculation_number: e.target.value })
+                setDraft({
+                  ...draft,
+                  matriculation_number: e.target.value,
+                })
               }
             />
+
             <label>First name</label>
+
             <input
               value={draft.first_name}
               onChange={(e) =>
-                setDraft({ ...draft, first_name: e.target.value })
+                setDraft({
+                  ...draft,
+                  first_name: e.target.value,
+                })
               }
             />
+
             <label>Last name</label>
+
             <input
               value={draft.last_name}
               onChange={(e) =>
-                setDraft({ ...draft, last_name: e.target.value })
+                setDraft({
+                  ...draft,
+                  last_name: e.target.value,
+                })
               }
             />
+
             <label>Email</label>
+
             <input
               value={draft.email}
-              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  email: e.target.value,
+                })
+              }
             />
+
             <label>Course</label>
+
             <input
               value={draft.course_of_studies ?? ""}
               onChange={(e) =>
-                setDraft({ ...draft, course_of_studies: e.target.value })
+                setDraft({
+                  ...draft,
+                  course_of_studies: e.target.value,
+                })
               }
             />
+
             <label>Semester</label>
+
             <input
               type="number"
               value={draft.current_study_semester ?? 0}
@@ -292,30 +504,51 @@ function StudentsPage() {
                 })
               }
             />
+
             <label>Credit points</label>
+
             <input
               type="number"
               value={draft.credit_points}
               onChange={(e) =>
-                setDraft({ ...draft, credit_points: Number(e.target.value) })
+                setDraft({
+                  ...draft,
+                  credit_points: Number(e.target.value),
+                })
               }
             />
+
             <label>Status</label>
+
             <select
               value={draft.contact_status}
               onChange={(e) =>
-                setDraft({ ...draft, contact_status: e.target.value })
+                setDraft({
+                  ...draft,
+                  contact_status: e.target.value,
+                })
               }
             >
               <option value="not_contacted_yet">Not contacted</option>
+
               <option value="emailed">Emailed</option>
+
               <option value="confirmed">Confirmed</option>
+
               <option value="didnt_respond">Didn't respond</option>
             </select>
-            <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
+
+            <div
+              style={{
+                marginTop: "1rem",
+                display: "flex",
+                gap: "0.5rem",
+              }}
+            >
               <button onClick={saveDraft} disabled={saving}>
                 {saving ? "Saving…" : "Save"}
               </button>
+
               <button onClick={() => setDraft(null)}>Cancel</button>
             </div>
           </div>

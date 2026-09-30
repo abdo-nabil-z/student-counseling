@@ -8,7 +8,7 @@ export interface Student {
   email: string;
   course_of_studies: string | null;
   current_study_semester: number | null;
-  credit_points: number;
+  credit_points: number | null;
   contact_status: string;
   initial_study_plan?: DocumentInfo | null;
   final_study_plan?: DocumentInfo | null;

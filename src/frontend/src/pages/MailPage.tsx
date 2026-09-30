@@ -12,11 +12,12 @@ import type {
   EmailDelivery,
   EmailPurpose,
 } from "../types/mail";
+import type { Appointment } from "../types/appointment";
 import type { Counselor } from "../types/counselor";
 import type { Student } from "../types/student";
 import type { Template } from "../types/template";
 
-type TargetType = "student" | "counselor";
+type TargetType = "student" | "counselor" | "external";
 type ExistingDocumentType =
   | "initial_study_plan"
   | "final_study_plan"
@@ -78,6 +79,12 @@ const EMAIL_PURPOSES: EmailPurposeOption[] = [
     value: "counselor_appointments_summary",
     label: "Accepted appointments summary",
     targetType: "counselor",
+    requiresAppointment: false,
+  },
+  {
+    value: "general_mail",
+    label: "General email",
+    targetType: "external",
     requiresAppointment: false,
   },
 ];
@@ -178,8 +185,22 @@ function getErrorMessage(error: unknown, fallback: string): string {
 function getDeliveryTargetName(delivery: {
   student_name: string | null;
   counselor_name: string | null;
+  recipient_email: string;
 }): string {
-  return delivery.student_name ?? delivery.counselor_name ?? "Unknown target";
+  return (
+    delivery.student_name ?? delivery.counselor_name ?? delivery.recipient_email
+  );
+}
+
+function parseExternalRecipients(value: string): string[] {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,;]+/)
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function MailPage() {
@@ -197,11 +218,13 @@ function MailPage() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
 
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
 
   const [selectedCounselors, setSelectedCounselors] = useState<Counselor[]>([]);
+  const [externalRecipientText, setExternalRecipientText] = useState("");
   const [purpose, setPurpose] = useState<EmailPurpose | "">("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
@@ -259,28 +282,37 @@ function MailPage() {
       api.get<Student[]>("/students/"),
       api.get<Counselor[]>("/counselors/"),
       api.get<Template[]>("/templates/"),
+      api.get<Appointment[]>("/appointments/"),
     ])
-      .then(([studentResponse, counselorResponse, templateResponse]) => {
-        setStudents(studentResponse.data);
-        setCounselors(counselorResponse.data);
-        setTemplates(templateResponse.data);
+      .then(
+        ([
+          studentResponse,
+          counselorResponse,
+          templateResponse,
+          appointmentResponse,
+        ]) => {
+          setStudents(studentResponse.data);
+          setCounselors(counselorResponse.data);
+          setTemplates(templateResponse.data);
+          setAppointments(appointmentResponse.data);
 
-        if (initialRouteSelection.targetType === "student") {
-          setSelectedStudents(
-            studentResponse.data.filter((student) =>
-              initialRouteSelection.targetIds?.includes(student.id),
-            ),
-          );
-        }
+          if (initialRouteSelection.targetType === "student") {
+            setSelectedStudents(
+              studentResponse.data.filter((student) =>
+                initialRouteSelection.targetIds?.includes(student.id),
+              ),
+            );
+          }
 
-        if (initialRouteSelection.targetType === "counselor") {
-          setSelectedCounselors(
-            counselorResponse.data.filter((counselor) =>
-              initialRouteSelection.targetIds?.includes(counselor.id),
-            ),
-          );
-        }
-      })
+          if (initialRouteSelection.targetType === "counselor") {
+            setSelectedCounselors(
+              counselorResponse.data.filter((counselor) =>
+                initialRouteSelection.targetIds?.includes(counselor.id),
+              ),
+            );
+          }
+        },
+      )
       .catch((requestError: unknown) => {
         setError(
           getErrorMessage(
@@ -303,11 +335,52 @@ function MailPage() {
   }, [templates]);
 
   const selectedPurpose = EMAIL_PURPOSES.find((item) => item.value === purpose);
+  const externalRecipients = useMemo(
+    () => parseExternalRecipients(externalRecipientText),
+    [externalRecipientText],
+  );
 
   const selectedTargetCount =
     selectedPurpose?.targetType === "counselor"
       ? selectedCounselors.length
-      : selectedStudents.length;
+      : selectedPurpose?.targetType === "external"
+        ? externalRecipients.length
+        : selectedStudents.length;
+
+  function studentHasSavedDocument(
+    student: Student,
+    documentType: ExistingDocumentType,
+  ): boolean {
+    if (documentType === "initial_study_plan") {
+      return Boolean(student.initial_study_plan);
+    }
+
+    if (documentType === "final_study_plan") {
+      return Boolean(student.final_study_plan);
+    }
+
+    return appointments.some((appointment) => {
+      const appointmentStudentId =
+        typeof appointment.student === "object"
+          ? appointment.student.id
+          : appointment.student;
+
+      return (
+        appointmentStudentId === student.id && Boolean(appointment.minutes)
+      );
+    });
+  }
+
+  function savedDocumentIsAvailable(
+    documentType: ExistingDocumentType,
+  ): boolean {
+    return (
+      selectedStudents.length > 0 &&
+      selectedStudents.every((student) =>
+        studentHasSavedDocument(student, documentType),
+      )
+    );
+  }
 
   async function generateDrafts() {
     if (!purpose || !selectedPurpose) {
@@ -317,9 +390,11 @@ function MailPage() {
     const targetIds =
       selectedPurpose.targetType === "counselor"
         ? selectedCounselors.map((counselor) => counselor.id)
-        : selectedStudents.map((student) => student.id);
+        : selectedPurpose.targetType === "student"
+          ? selectedStudents.map((student) => student.id)
+          : [];
 
-    if (targetIds.length === 0) {
+    if (selectedTargetCount === 0) {
       return;
     }
 
@@ -336,6 +411,10 @@ function MailPage() {
 
       targetIds.forEach((targetId) => {
         formData.append("target_ids", String(targetId));
+      });
+
+      externalRecipients.forEach((email) => {
+        formData.append("external_recipients", email);
       });
 
       existingDocumentTypes.forEach((documentType) => {
@@ -705,6 +784,10 @@ function MailPage() {
               if (nextPurposeOption?.targetType !== "counselor") {
                 setSelectedCounselors([]);
               }
+
+              if (nextPurposeOption?.targetType !== "external") {
+                setExternalRecipientText("");
+              }
             }}
           >
             <option value="">Select a template</option>
@@ -843,6 +926,28 @@ function MailPage() {
             </>
           )}
 
+          {selectedPurpose?.targetType === "external" && (
+            <>
+              <label htmlFor="external-recipients">Recipient emails</label>
+
+              <textarea
+                id="external-recipients"
+                rows={5}
+                value={externalRecipientText}
+                onChange={(event) => {
+                  setExternalRecipientText(event.target.value);
+                  setBatch(null);
+                  setBatchStatus(null);
+                }}
+                placeholder={"person@example.com\nanother.person@example.com"}
+              />
+
+              <p className="attachment-help">
+                Enter one address per line, or separate addresses with commas.
+              </p>
+            </>
+          )}
+
           {selectedPurpose && (
             <p style={{ color: "#6b7280" }}>
               {selectedTargetCount} recipient(s) selected
@@ -878,23 +983,40 @@ function MailPage() {
                   </span>
                 </p>
                 <div className="attachment-options">
-                  {EXISTING_DOCUMENT_OPTIONS.map((option) => (
-                    <label key={option.value}>
-                      <input
-                        type="checkbox"
-                        checked={existingDocumentTypes.includes(option.value)}
-                        onChange={(event) =>
-                          setExistingDocumentTypes((current) =>
-                            event.target.checked
-                              ? [...current, option.value]
-                              : current.filter((item) => item !== option.value),
-                          )
-                        }
-                      />
+                  {EXISTING_DOCUMENT_OPTIONS.map((option) => {
+                    const available = savedDocumentIsAvailable(option.value);
 
-                      {option.label}
-                    </label>
-                  ))}
+                    return (
+                      <label
+                        key={option.value}
+                        className={
+                          available
+                            ? "saved-document-option saved-document-option--available"
+                            : "saved-document-option saved-document-option--unavailable"
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={!available}
+                          checked={
+                            available &&
+                            existingDocumentTypes.includes(option.value)
+                          }
+                          onChange={(event) =>
+                            setExistingDocumentTypes((current) =>
+                              event.target.checked
+                                ? [...current, option.value]
+                                : current.filter(
+                                    (item) => item !== option.value,
+                                  ),
+                            )
+                          }
+                        />
+
+                        {option.label}
+                      </label>
+                    );
+                  })}
                 </div>
 
                 <p className="attachment-group-title">
@@ -903,7 +1025,7 @@ function MailPage() {
 
                 <div className="attachment-options">
                   {GENERATED_PDF_OPTIONS.map((option) => (
-                    <label key={option.value}>
+                    <label key={option.value} className="saved-document-option">
                       <input
                         type="checkbox"
                         checked={generatedPdfPurposes.includes(option.value)}
@@ -961,7 +1083,6 @@ function MailPage() {
                   <th>CC</th>
                   <th>Subject</th>
                   <th>Status</th>
-                  <th>Status</th>
                   <th>Attachments</th>
                   <th>Actions</th>
                 </tr>
@@ -979,6 +1100,14 @@ function MailPage() {
                     <td>{delivery.subject}</td>
 
                     <td className="mail-status">{delivery.status}</td>
+
+                    <td>
+                      {delivery.attachments.length > 0
+                        ? delivery.attachments
+                            .map((attachment) => attachment.name)
+                            .join(", ")
+                        : "—"}
+                    </td>
 
                     <td>
                       {delivery.status === "draft" && (
@@ -1103,6 +1232,7 @@ function MailPage() {
               <th>Recipient</th>
               <th>Email</th>
               <th>Status</th>
+              <th>Attachments</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -1110,11 +1240,11 @@ function MailPage() {
           <tbody>
             {historyLoading && mailHistoryRows.length === 0 ? (
               <tr>
-                <td colSpan={6}>Loading mail history…</td>
+                <td colSpan={7}>Loading mail history…</td>
               </tr>
             ) : mailHistoryRows.length === 0 ? (
               <tr>
-                <td colSpan={6}>No mail history found.</td>
+                <td colSpan={7}>No mail history found.</td>
               </tr>
             ) : (
               visibleMailHistoryRows.map(

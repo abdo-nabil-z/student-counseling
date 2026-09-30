@@ -32,6 +32,46 @@ interface AppointmentPrefill {
   location: string;
 }
 
+interface AppointmentOverlapWarning {
+  message: string;
+  overlapCount: number;
+}
+
+function getAppointmentOverlapWarning(
+  error: unknown,
+): AppointmentOverlapWarning | null {
+  const apiError = (
+    error as {
+      response?: {
+        data?: {
+          error?: {
+            code?: string;
+            message?: string;
+            details?: {
+              overlapping_appointments?: unknown[];
+              can_override?: boolean;
+            };
+          };
+        };
+      };
+    }
+  ).response?.data?.error;
+
+  if (
+    apiError?.code !== "appointment_overlap_warning" ||
+    !apiError.details?.can_override
+  ) {
+    return null;
+  }
+
+  return {
+    message:
+      apiError.message ??
+      "This appointment overlaps another active appointment.",
+    overlapCount: apiError.details.overlapping_appointments?.length ?? 0,
+  };
+}
+
 function addMinutes(hhmm: string, mins: number): string {
   const [h, m] = hhmm.split(":").map(Number);
   const total = h * 60 + m + mins;
@@ -157,6 +197,12 @@ function AppointmentPage() {
     setSlotId("");
     setStartTime("");
     setEndTime("");
+
+    const selectedCounselor = counselors.find(
+      (counselor) => counselor.id === Number(v),
+    );
+
+    setLocation(selectedCounselor?.office_address ?? "");
     if (!v) setSlots([]);
   }
   function onSlotChange(v: string) {
@@ -233,6 +279,12 @@ function AppointmentPage() {
     setEditCounselorId(v);
     setEditSlotId("");
     setEditSlots([]);
+
+    const selectedCounselor = counselors.find(
+      (counselor) => counselor.id === Number(v),
+    );
+
+    setEditLocation(selectedCounselor?.office_address ?? "");
   }
 
   function onEditSlotChange(v: string) {
@@ -257,15 +309,38 @@ function AppointmentPage() {
     }
     setEditSaving(true);
     setEditError(null);
+
+    const payload = {
+      counselor: Number(editCounselorId),
+      slot: editSlotId ? Number(editSlotId) : null,
+      start_time: `${editDate}T${editStartTime}:00`,
+      duration_minutes: duration,
+      location: editLocation || null,
+      status: editStatus,
+    };
+
     try {
-      await api.patch(`/appointments/${editing.id}/`, {
-        counselor: Number(editCounselorId),
-        slot: editSlotId ? Number(editSlotId) : null,
-        start_time: `${editDate}T${editStartTime}:00`,
-        duration_minutes: duration,
-        location: editLocation || null,
-        status: editStatus,
-      });
+      try {
+        await api.patch(`/appointments/${editing.id}/`, payload);
+      } catch (requestError: unknown) {
+        const warning = getAppointmentOverlapWarning(requestError);
+
+        if (!warning) throw requestError;
+
+        const confirmed = window.confirm(
+          `${warning.message}\n\n` +
+            `${warning.overlapCount} overlapping appointment(s) found. ` +
+            `Save anyway?`,
+        );
+
+        if (!confirmed) return;
+
+        await api.patch(`/appointments/${editing.id}/`, {
+          ...payload,
+          allow_overlap: true,
+        });
+      }
+
       setEditing(null);
       reloadAll();
     } catch (e) {
@@ -346,15 +421,37 @@ function AppointmentPage() {
     }
     setSaving(true);
     setFormError(null);
+
+    const payload = {
+      student: Number(studentId),
+      counselor: Number(counselorId),
+      slot: Number(slotId),
+      start_time: `${selectedSlot.date}T${startTime}:00`,
+      duration_minutes: duration,
+      location: location || null,
+    };
+
     try {
-      await api.post("/appointments/create-appointment/", {
-        student: Number(studentId),
-        counselor: Number(counselorId),
-        slot: Number(slotId),
-        start_time: `${selectedSlot.date}T${startTime}:00`,
-        duration_minutes: duration,
-        location: location || null,
-      });
+      try {
+        await api.post("/appointments/create-appointment/", payload);
+      } catch (requestError: unknown) {
+        const warning = getAppointmentOverlapWarning(requestError);
+
+        if (!warning) throw requestError;
+
+        const confirmed = window.confirm(
+          `${warning.message}\n\n` +
+            `${warning.overlapCount} overlapping appointment(s) found. ` +
+            `Create anyway?`,
+        );
+
+        if (!confirmed) return;
+
+        await api.post("/appointments/create-appointment/", {
+          ...payload,
+          allow_overlap: true,
+        });
+      }
 
       const createdStudent = students.find((s) => s.id === Number(studentId));
       const createdDate = selectedSlot.date;

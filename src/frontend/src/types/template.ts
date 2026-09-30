@@ -1,5 +1,4 @@
 export type Purpose =
-  | "testmail"
   | "student_invitation"
   | "student_reminder"
   | "forced_appointment_assignment"
@@ -8,6 +7,7 @@ export type Purpose =
   | "appointment_cancellation"
   | "counselor_availability_request"
   | "counselor_appointments_summary"
+  | "general_mail"
   | "study_plan"
   | "appointment_minutes";
 
