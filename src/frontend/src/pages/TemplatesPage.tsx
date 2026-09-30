@@ -15,7 +15,7 @@ import type {
 
 // ---- Static metadata the backend doesn't expose directly ----
 
-type InputKind = "counselor" | "student" | "student_counselor";
+type InputKind = "counselor" | "student" | "student_counselor" | "external";
 
 interface PurposeMeta {
   label: string;
@@ -24,7 +24,6 @@ interface PurposeMeta {
 }
 
 const PURPOSE_META: Record<Purpose, PurposeMeta> = {
-  testmail: { label: "Test Mail", category: "Email", inputKind: "counselor" },
   student_invitation: {
     label: "Initial Invitation (Student)",
     category: "Email",
@@ -64,6 +63,11 @@ const PURPOSE_META: Record<Purpose, PurposeMeta> = {
     label: "Accepted Appointments Summary (Counsellor)",
     category: "Email",
     inputKind: "counselor",
+  },
+  general_mail: {
+    label: "General Email",
+    category: "Email",
+    inputKind: "external",
   },
   study_plan: {
     label: "Study Plan",
@@ -440,7 +444,7 @@ function TemplatePreview({ purpose }: { purpose: Purpose }) {
 
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
-
+  const [externalRecipientEmail, setExternalRecipientEmail] = useState("");
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
@@ -507,7 +511,16 @@ function TemplatePreview({ purpose }: { purpose: Purpose }) {
       : `Counsellor #${value}`;
   }
 
-  function buildPayload(): Record<string, number> | null {
+  function buildPayload(): Record<string, number | string> | null {
+    if (meta.inputKind === "external") {
+      if (!externalRecipientEmail.trim()) {
+        return null;
+      }
+
+      return {
+        recipient_email: externalRecipientEmail.trim(),
+      };
+    }
     if (meta.inputKind === "counselor") {
       if (!selectedCounselor) return null;
 
@@ -534,6 +547,7 @@ function TemplatePreview({ purpose }: { purpose: Purpose }) {
   }
 
   const canRender =
+    (meta.inputKind === "external" && externalRecipientEmail.trim() !== "") ||
     (meta.inputKind === "counselor" && selectedCounselor !== null) ||
     (meta.inputKind === "student" && selectedStudent !== null) ||
     (meta.inputKind === "student_counselor" && selectedAppointment !== null);
@@ -592,6 +606,17 @@ function TemplatePreview({ purpose }: { purpose: Purpose }) {
       {optionsLoading && <p>Loading available records…</p>}
 
       {optionsError && <p style={{ color: "crimson" }}>{optionsError}</p>}
+
+      {!optionsLoading && !optionsError && meta.inputKind === "external" && (
+        <TextField
+          type="email"
+          label="Recipient email"
+          value={externalRecipientEmail}
+          onChange={(event) => setExternalRecipientEmail(event.target.value)}
+          placeholder="person@example.com"
+          fullWidth
+        />
+      )}
 
       {!optionsLoading && !optionsError && meta.inputKind === "counselor" && (
         <Autocomplete

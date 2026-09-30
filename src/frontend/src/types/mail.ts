@@ -6,9 +6,10 @@ export type EmailPurpose =
   | "counselor_preparation_instruction"
   | "appointment_cancellation"
   | "counselor_availability_request"
-  | "counselor_appointments_summary";
+  | "counselor_appointments_summary"
+  | "general_mail";
 
-export type RecipientType = "student" | "counselor";
+export type RecipientType = "student" | "counselor" | "external";
 
 export type EmailDeliveryStatus = "draft" | "queued" | "sent" | "failed";
 

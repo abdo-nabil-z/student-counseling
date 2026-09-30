@@ -284,21 +284,46 @@ function StudentsPage() {
             <label>Semester</label>
             <input
               type="number"
-              value={draft.current_study_semester ?? 0}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  current_study_semester: Number(e.target.value),
-                })
-              }
+              min={1}
+              step={1}
+              value={draft.current_study_semester ?? ""}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                if (value === "") {
+                  setDraft({
+                    ...draft,
+                    current_study_semester: null,
+                  });
+                } else if (/^\d+$/.test(value) && Number(value) >= 1) {
+                  setDraft({
+                    ...draft,
+                    current_study_semester: Number(value),
+                  });
+                }
+              }}
             />
             <label>Credit points</label>
             <input
               type="number"
-              value={draft.credit_points}
-              onChange={(e) =>
-                setDraft({ ...draft, credit_points: Number(e.target.value) })
-              }
+              min={0}
+              step={1}
+              value={draft.credit_points ?? ""}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                if (value === "") {
+                  setDraft({
+                    ...draft,
+                    credit_points: null,
+                  });
+                } else if (/^\d+$/.test(value) && Number(value) >= 0) {
+                  setDraft({
+                    ...draft,
+                    credit_points: Number(value),
+                  });
+                }
+              }}
             />
             <label>Status</label>
             <select
