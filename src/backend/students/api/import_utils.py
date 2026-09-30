@@ -16,39 +16,32 @@ EXPECTED_COLUMNS = [
 
 
 COLUMN_ALIASES = {
-    "matriculation": "matriculation_number",
-    "matriculation_number": "matriculation_number",
+    "id": "matriculation_number",
     "matriculation number": "matriculation_number",
-    "matrikelnummer": "matriculation_number",
-    "student_number": "matriculation_number",
+    "matriculation_number": "matriculation_number",
 
-    "first_name": "first_name",
     "first name": "first_name",
-    "vorname": "first_name",
+    "first_name": "first_name",
 
-    "last_name": "last_name",
     "last name": "last_name",
-    "nachname": "last_name",
-    "surname": "last_name",
+    "last_name": "last_name",
 
     "email": "email",
     "e-mail": "email",
+    "e_mail": "email",
     "email address": "email",
 
-    "course_of_studies": "course_of_studies",
     "course": "course_of_studies",
     "course of studies": "course_of_studies",
-    "studiengang": "course_of_studies",
+    "course_of_studies": "course_of_studies",
 
-    "current_study_semester": "current_study_semester",
-    "study semester": "current_study_semester",
     "semester": "current_study_semester",
-    "fachsemester": "current_study_semester",
+    "current study semester": "current_study_semester",
+    "current_study_semester": "current_study_semester",
 
-    "credit_points": "credit_points",
-    "credit points": "credit_points",
     "credits": "credit_points",
-    "ects": "credit_points",
+    "credit points": "credit_points",
+    "credit_points": "credit_points",
 }
 
 

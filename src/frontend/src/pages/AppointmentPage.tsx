@@ -157,6 +157,8 @@ function AppointmentPage() {
     setSlotId("");
     setStartTime("");
     setEndTime("");
+    const counselor = counselors.find((c) => String(c.id) === v);
+    setLocation(counselor?.office_address ?? "");
     if (!v) setSlots([]);
   }
   function onSlotChange(v: string) {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Student } from "../types/student";
 import Modal from "../components/common/Model";
 import api from "../api/client";
-// import { openMailClient } from "../types/Mailto";
+
 function EditIcon() {
   return (
     <svg
@@ -19,6 +19,24 @@ function EditIcon() {
     >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+function MailIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-10 6L2 7" />
     </svg>
   );
 }
@@ -86,6 +104,8 @@ function StudentsPage() {
     });
   }
 
+  /** Upload OR replace a study plan. The backend POST endpoint replaces any
+   *  existing document, so the same call covers both "upload" and "modify". */
   async function uploadPlan(
     studentId: number,
     which: "initial" | "final",
@@ -131,6 +151,18 @@ function StudentsPage() {
     }
   }
 
+  /** Delete a study-plan document. The Student FK is on_delete=SET_NULL,
+   *  so removing the Document automatically clears the student's link. */
+  async function deletePlan(docId: number) {
+    if (!window.confirm("Delete this study plan?")) return;
+    try {
+      await api.delete(`/documents/${docId}/`);
+      load();
+    } catch (err) {
+      alert("Delete failed: " + (err as Error).message);
+    }
+  }
+
   async function removeStudent(s: Student) {
     if (!window.confirm(`Delete ${s.first_name} ${s.last_name}?`)) return;
     try {
@@ -143,16 +175,18 @@ function StudentsPage() {
 
   function PlanCell({ s, which }: { s: Student; which: "initial" | "final" }) {
     const doc = which === "initial" ? s.initial_study_plan : s.final_study_plan;
-    if (doc) {
-      return (
-        <a href={doc.download_url} target="_blank" rel="noreferrer">
-          {doc.name}
-        </a>
-      );
-    }
-    return (
-      <label className="icon-btn" title="Upload study plan">
-        Upload
+
+    const filePicker = (labelText: string, hint: string) => (
+      <label
+        title={hint}
+        style={{
+          cursor: "pointer",
+          color: "#5b5bef",
+          fontSize: "13px",
+          fontWeight: 500,
+        }}
+      >
+        {labelText}
         <input
           type="file"
           style={{ display: "none" }}
@@ -163,6 +197,68 @@ function StudentsPage() {
           }}
         />
       </label>
+    );
+
+    // A document already exists: filename on its own line, a small muted
+    // "Modify" action underneath. Modify re-uploads to the same endpoint,
+    // which overwrites the existing file.
+    if (doc) {
+      return (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: "2px",
+          }}
+        >
+          <a
+            href={doc.download_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              maxWidth: "160px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {doc.name}
+          </a>
+          <span
+            style={{
+              display: "inline-flex",
+              gap: "10px",
+              alignItems: "center",
+            }}
+          >
+            {filePicker("Modify", "Modify study plan")}
+            <button
+              type="button"
+              onClick={() => deletePlan(doc.id)}
+              title="Delete study plan"
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                color: "#c0392b",
+                fontSize: "13px",
+                fontWeight: 500,
+              }}
+            >
+              Delete
+            </button>
+          </span>
+        </div>
+      );
+    }
+
+    // No document yet: a single upload action, same size and placement.
+    return (
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {filePicker("Upload", "Upload study plan")}
+      </div>
     );
   }
 
@@ -225,7 +321,14 @@ function StudentsPage() {
                     >
                       <EditIcon />
                     </button>
-                    <button onClick={() => openMails(s)}>Mails</button>
+                    <button
+                      className="icon-btn"
+                      title="Mails"
+                      aria-label="Mails"
+                      onClick={() => openMails(s)}
+                    >
+                      <MailIcon />
+                    </button>
                     <button
                       className="icon-btn icon-btn--danger"
                       title="Delete"

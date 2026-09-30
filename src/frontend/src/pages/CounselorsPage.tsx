@@ -204,7 +204,7 @@ function CounselorsPage() {
                 <th>Title</th>
                 <th>Name</th>
                 <th>Chair</th>
-                <th>Office</th>
+                <th>Office Address </th>
                 <th>Email</th>
                 <th>Availability</th>
                 <th>Actions</th>
