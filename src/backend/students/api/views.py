@@ -285,7 +285,11 @@ def create_list_students(request):
             200: StudentDetailSerializer,
             400: APIErrorResponseSerializer,
         },
-        description="Update a student",
+        description=(
+            "Update a student. contact_status may be edited manually "
+            "and can also be updated automatically by mailing and "
+            "appointment workflows."
+        ),
         tags=["Students"]
     ),
     delete=extend_schema(

@@ -10,6 +10,7 @@ from mailing.services.email_settings import (
     build_email_connection,
     get_active_email_settings,
 )
+from students.services.contact_status import mark_student_emailed
 
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,25 @@ def _record_send_success(delivery: EmailDelivery)->None:
             "updated_at",
         ]
     )
+
+
+def _sync_student_contact_status_after_send(delivery: EmailDelivery) -> None:
+    if (
+        delivery.recipient_type != EmailDelivery.RecipientType.STUDENT
+        or delivery.student_id is None
+    ):
+        return
+
+    try:
+        mark_student_emailed(delivery.student)
+    except Exception:
+        logger.exception(
+            "Failed to update student contact status after successful email send",
+            extra={
+                "delivery_id": delivery.pk,
+                "student_id": delivery.student_id,
+            },
+        )
 
 
 def _attach_delivery_files(message, delivery: EmailDelivery) -> None:
@@ -209,6 +229,7 @@ def send_email_delivery_once(delivery: EmailDelivery)->None:
         raise
 
     _record_send_success(delivery)
+    _sync_student_contact_status_after_send(delivery)
 
     cleanup_sent_delivery_attachments(delivery)
 
