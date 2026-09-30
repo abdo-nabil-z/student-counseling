@@ -1,5 +1,9 @@
 import pandas as pd
+import csv
+from datetime import timedelta
 
+from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status, serializers as drf_serializers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, parser_classes
@@ -273,6 +277,137 @@ def create_list_students(request):
 
 
 
+@extend_schema(
+    responses={
+        200: OpenApiResponse(
+            description=(
+                "Download a CSV semester report containing all students, "
+                "their appointment information, and attached "
+                "study-plan/minutes documents."
+            )
+        )
+    },
+    description=(
+        "Export the current semester data as CSV. "
+        "Each row represents one student. "
+        "Students without an appointment are included with empty "
+        "appointment fields."
+    ),
+    tags=["Students"],
+)
+@api_view(["GET"])
+def export_semester_report(request):
+    response = HttpResponse(
+        content_type="text/csv; charset=utf-8"
+    )
+
+    response["Content-Disposition"] = (
+        'attachment; filename="semester_report.csv"'
+    )
+
+    writer = csv.writer(response)
+
+    writer.writerow([
+        "student_id",
+        "matriculation_number",
+        "first_name",
+        "last_name",
+        "email",
+        "course_of_studies",
+        "current_study_semester",
+        "credit_points",
+        "contact_status",
+        "appointment_id",
+        "appointment_status",
+        "appointment_start",
+        "appointment_end",
+        "appointment_duration_minutes",
+        "counselor",
+        "location",
+        "initial_study_plan_id",
+        "initial_study_plan_name",
+        "final_study_plan_id",
+        "final_study_plan_name",
+        "appointment_minutes_id",
+        "appointment_minutes_name",
+    ])
+
+    students = (
+        Student.objects
+        .select_related(
+            "initial_study_plan",
+            "final_study_plan",
+            "appointment__counselor",
+            "appointment__minutes",
+        )
+        .order_by("last_name", "first_name", "id")
+    )
+
+    for student in students:
+        appointment = getattr(
+            student,
+            "appointment",
+            None,
+        )
+
+        appointment_id = ""
+        appointment_status = ""
+        appointment_start = ""
+        appointment_end = ""
+        appointment_duration = ""
+        counselor_name = ""
+        location = ""
+        minutes = None
+
+        if appointment is not None:
+            local_start = timezone.localtime(
+                appointment.start_time
+            )
+
+            local_end = local_start + timedelta(
+                minutes=appointment.duration_minutes
+            )
+
+            appointment_id = appointment.pk
+            appointment_status = appointment.status
+            appointment_start = local_start.isoformat()
+            appointment_end = local_end.isoformat()
+            appointment_duration = appointment.duration_minutes
+            counselor_name = appointment.counselor.full_name
+            location = appointment.location or ""
+            minutes = appointment.minutes
+
+        initial_plan = student.initial_study_plan
+        final_plan = student.final_study_plan
+
+        writer.writerow([
+            student.pk,
+            student.matriculation_number,
+            student.first_name,
+            student.last_name,
+            student.email,
+            student.course_of_studies or "",
+            student.current_study_semester or "",
+            student.credit_points or "",
+            student.contact_status,
+            appointment_id,
+            appointment_status,
+            appointment_start,
+            appointment_end,
+            appointment_duration,
+            counselor_name,
+            location,
+            initial_plan.pk if initial_plan else "",
+            initial_plan.name if initial_plan else "",
+            final_plan.pk if final_plan else "",
+            final_plan.name if final_plan else "",
+            minutes.pk if minutes else "",
+            minutes.name if minutes else "",
+        ])
+
+    return response
+
+
 @extend_schema_view(
     get=extend_schema(
         responses={200: StudentDetailSerializer},
@@ -285,7 +420,11 @@ def create_list_students(request):
             200: StudentDetailSerializer,
             400: APIErrorResponseSerializer,
         },
-        description="Update a student",
+        description=(
+            "Update a student. contact_status may be edited manually "
+            "and can also be updated automatically by mailing and "
+            "appointment workflows."
+        ),
         tags=["Students"]
     ),
     delete=extend_schema(

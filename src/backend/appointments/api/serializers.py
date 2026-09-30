@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 
 from django.utils import timezone
+from django.db import transaction
 from rest_framework import serializers
 
 from appointments.models import Appointment
 from appointments.api_exceptions import AppointmentOverlapWarning
 from counselors.api.serializers import CounselorDetailSerializer, SlotDetailSerializer
 from students.api.serializers import StudentDetailSerializer
+from students.services.contact_status import mark_student_confirmed
 from documents.api.serializers import DocumentInfoSerializer
 
 
@@ -201,6 +203,15 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def create(self, validated_data):
+        with transaction.atomic():
+            appointment = super().create(validated_data)
+
+            if appointment.status == Appointment.Status.BOOKED:
+                mark_student_confirmed(appointment.student)
+
+            return appointment
+
 
 # Used when LISTING appointments (expands the related records for display)
 class AppointmentDetailSerializer(serializers.ModelSerializer):
@@ -325,6 +336,20 @@ class AppointmentUpdateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+    def update(self, instance, validated_data):
+        previous_status = instance.status
+
+        with transaction.atomic():
+            appointment = super().update(instance, validated_data)
+
+            if (
+                appointment.status == Appointment.Status.BOOKED
+                and previous_status != Appointment.Status.BOOKED
+            ):
+                mark_student_confirmed(appointment.student)
+
+            return appointment
 
 
 class AppointmentFilterSerializer(serializers.Serializer):
