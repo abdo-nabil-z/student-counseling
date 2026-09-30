@@ -1,0 +1,6 @@
+Dear {{ counselor.title }} {{ counselor.last_name }},
+
+Please provide your availability for upcoming student consultations at your office ({{ counselor.office_address }}, {{ counselor.department }}).
+
+Best regards,
+The Consultation Team

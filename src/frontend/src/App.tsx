@@ -10,6 +10,7 @@ import CounselorMailPage from "./pages/CounselorMailPage";
 import AppointmentsPage from "./pages/AppointmentPage";
 import TemplatesPage from "./pages/TemplatesPage";
 import MailPage from "./pages/MailPage";
+import MailSettingsPage from "./pages/MailSettingsPage";
 // ...inside <Routes><Route path="/" element={<AppLayout />}>...
 
 import "./App.css";
@@ -34,6 +35,7 @@ function App() {
           />
           <Route path="templates" element={<TemplatesPage />} />
           <Route path="mail" element={<MailPage />} />
+          <Route path="mail-settings" element={<MailSettingsPage />} />
           <Route path="slots" element={<SlotsPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
         </Route>

@@ -510,3 +510,19 @@ input[type="checkbox"] {
   font-size: 0.85rem;
   font-weight: 400;
 }
+
+.saved-document-option {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.saved-document-option--available {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.saved-document-option--unavailable {
+  background: #f9fafb;
+  color: #9ca3af;
+}

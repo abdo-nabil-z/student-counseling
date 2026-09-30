@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import BaseRenderer, JSONRenderer
+from rest_framework.exceptions import NotFound
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
@@ -20,18 +21,24 @@ from templates.api.serializers import (
     StudentCounselorRenderSerializer,
     ExternalRecipientRenderSerializer,
 )
-from templates.context_registry import (
-    TestmailContext,
-    StudentAndBlocksContext,
-    AppointmentStudentCounselorContext,
-    CounselorOnlyContext,
-    CounselorAppointmentsContext,
-    StudyPlanContext,
-    AppointmentMinutesContext,
-    ExternalRecipientContext,
-)
+from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, PDFContext
 from templates.rendering import TemplateRenderError, render_from_template  # noqa: F401 — re-exported
 from pdf.rendering import render_template_to_pdf
+
+# Which request serializer a purpose needs, keyed the same as PURPOSE_CONTEXT_REGISTRY.
+PURPOSE_SERIALIZER_REGISTRY: dict[str, type] = {
+    Purpose.STUDENT_INVITATION_MAIL: StudentRenderSerializer,
+    Purpose.STUDENT_REMINDER_MAIL: StudentRenderSerializer,
+    Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL: StudentCounselorRenderSerializer,
+    Purpose.APPOINTMENT_INVITATION_MAIL: StudentCounselorRenderSerializer,
+    Purpose.COUNSELOR_PREPARATION_INSTRUCTION_MAIL: StudentCounselorRenderSerializer,
+    Purpose.APPOINTMENT_CANCELLATION_MAIL: StudentCounselorRenderSerializer,
+    Purpose.STUDY_PLAN: StudentRenderSerializer,
+    Purpose.APPOINTMENT_MINUTES: StudentCounselorRenderSerializer,
+    Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorRenderSerializer,
+    Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorRenderSerializer,
+    Purpose.GENERAL_MAIL: ExternalRecipientRenderSerializer,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -96,91 +103,19 @@ def _render_pdf_purpose(request, purpose, serializer_class, context_class):
     return response
 
 
-@schemas.render_testmail
+@schemas.render_purpose
 @api_view(["POST"])
-def render_testmail(request):
-    return _render_purpose(request, Purpose.TESTMAIL, CounselorRenderSerializer, TestmailContext)
+@renderer_classes([JSONRenderer, PDFRenderer])
+def render_purpose(request, purpose):
+    if purpose not in PURPOSE_CONTEXT_REGISTRY:
+        raise NotFound(
+            detail=f"Unknown template purpose '{purpose}'.",
+            code="unknown_template_purpose",
+        )
 
+    context_class = PURPOSE_CONTEXT_REGISTRY[purpose]
+    serializer_class = PURPOSE_SERIALIZER_REGISTRY[purpose]
 
-@schemas.render_student_invitation
-@api_view(["POST"])
-def render_student_invitation(request):
-    return _render_purpose(request, Purpose.STUDENT_INVITATION_MAIL, StudentRenderSerializer, StudentAndBlocksContext)
-
-
-@schemas.render_student_reminder
-@api_view(["POST"])
-def render_student_reminder(request):
-    return _render_purpose(request, Purpose.STUDENT_REMINDER_MAIL, StudentRenderSerializer, StudentAndBlocksContext)
-
-
-@schemas.render_forced_appointment_assignment
-@api_view(["POST"])
-def render_forced_appointment_assignment(request):
-    return _render_purpose(request, Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL, StudentCounselorRenderSerializer, AppointmentStudentCounselorContext)
-
-
-@schemas.render_appointment_invitation
-@api_view(["POST"])
-def render_appointment_invitation(request):
-    return _render_purpose(request, Purpose.APPOINTMENT_INVITATION_MAIL, StudentCounselorRenderSerializer, AppointmentStudentCounselorContext)
-
-
-@schemas.render_counselor_preparation_instruction
-@api_view(["POST"])
-def render_counselor_preparation_instruction(request):
-    return _render_purpose(request, Purpose.COUNSELOR_PREPARATION_INSTRUCTION_MAIL, StudentCounselorRenderSerializer, AppointmentStudentCounselorContext)
-
-
-@schemas.render_appointment_cancellation
-@api_view(["POST"])
-def render_appointment_cancellation(request):
-    return _render_purpose(request, Purpose.APPOINTMENT_CANCELLATION_MAIL, StudentCounselorRenderSerializer, AppointmentStudentCounselorContext)
-
-
-@schemas.render_study_plan
-@api_view(["POST"])
-@renderer_classes([PDFRenderer, JSONRenderer])
-def render_study_plan(request):
-    return _render_pdf_purpose(request, Purpose.STUDY_PLAN, StudentRenderSerializer, StudyPlanContext)
-
-
-@schemas.render_appointment_minutes
-@api_view(["POST"])
-@renderer_classes([PDFRenderer, JSONRenderer])
-def render_appointment_minutes(request):
-    return _render_pdf_purpose(request, Purpose.APPOINTMENT_MINUTES, StudentCounselorRenderSerializer, AppointmentMinutesContext)
-
-
-@schemas.render_counselor_availability_request
-@api_view(["POST"])
-def render_counselor_availability_request(request):
-    return _render_purpose(
-        request,
-        Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL,
-        CounselorRenderSerializer,
-        CounselorOnlyContext,
-    )
-
-
-@schemas.render_counselor_appointments_summary
-@api_view(["POST"])
-def render_counselor_appointments_summary(request):
-    return _render_purpose(
-        request,
-        Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL,
-        CounselorRenderSerializer,
-        CounselorAppointmentsContext,
-    )
-
-
-
-@schemas.render_general_mail
-@api_view(["POST"])
-def render_general_mail(request):
-    return _render_purpose(
-        request,
-        Purpose.GENERAL_MAIL,
-        ExternalRecipientRenderSerializer,
-        ExternalRecipientContext,
-    )
+    if issubclass(context_class, PDFContext):
+        return _render_pdf_purpose(request, purpose, serializer_class, context_class)
+    return _render_purpose(request, purpose, serializer_class, context_class)

@@ -5,18 +5,7 @@ from templates.api.views import (
     get_template,
     update_template,
     purpose_context_schema,
-    render_testmail,
-    render_student_invitation,
-    render_student_reminder,
-    render_forced_appointment_assignment,
-    render_appointment_invitation,
-    render_counselor_preparation_instruction,
-    render_appointment_cancellation,
-    render_study_plan,
-    render_appointment_minutes,
-    render_counselor_availability_request,
-    render_counselor_appointments_summary,
-    render_general_mail,
+    render_purpose,
 )
 
 app_name = 'templates_api'
@@ -28,18 +17,7 @@ urlpatterns = [
     path("<str:purpose>/update/", update_template, name="update_template"),
     path("<str:purpose>/context-schema/", purpose_context_schema, name="purpose_context_schema"),
 
-    # Render endpoints (one per purpose, before the <str:purpose>/ catch-all)
-    path("testmail/render/", render_testmail, name="render_testmail"),
-    path("student_invitation/render/", render_student_invitation, name="render_student_invitation"),
-    path("student_reminder/render/", render_student_reminder, name="render_student_reminder"),
-    path("forced_appointment_assignment/render/", render_forced_appointment_assignment, name="render_forced_appointment_assignment"),
-    path("appointment_invitation/render/", render_appointment_invitation, name="render_appointment_invitation"),
-    path("counselor_preparation_instruction/render/", render_counselor_preparation_instruction, name="render_counselor_preparation_instruction"),
-    path("appointment_cancellation/render/", render_appointment_cancellation, name="render_appointment_cancellation"),
-    path("study_plan/render/", render_study_plan, name="render_study_plan"),
-    path("appointment_minutes/render/", render_appointment_minutes, name="render_appointment_minutes"),
-    path("counselor_availability_request/render/", render_counselor_availability_request, name="render_counselor_availability_request"),
-    path("counselor_appointments_summary/render/",render_counselor_appointments_summary, name="render_counselor_appointments_summary"),
-    path("general_mail/render/", render_general_mail, name="render_general_mail"),
+    # Render endpoint (single generic view, dispatches per purpose)
+    path("<str:purpose>/render/", render_purpose, name="render_purpose"),
 ]
 

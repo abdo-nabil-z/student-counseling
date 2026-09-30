@@ -9,20 +9,7 @@ from templates.api.serializers import TemplateSerializer
 from templates.api import schemas
 from templates.context_registry import PURPOSE_CONTEXT_REGISTRY, PDFContext, flatten_context_schema, annotate_directives
 from templates.rendering import FORM_FIELD_ELEMENTS
-from templates.api.render_views import (  # noqa: F401 — re-exported for urls.py
-    render_testmail,
-    render_student_invitation,
-    render_student_reminder,
-    render_forced_appointment_assignment,
-    render_appointment_invitation,
-    render_counselor_preparation_instruction,
-    render_appointment_cancellation,
-    render_study_plan,
-    render_appointment_minutes,
-    render_counselor_availability_request,
-    render_counselor_appointments_summary,
-    render_general_mail,
-)
+from templates.api.render_views import render_purpose  # noqa: F401 — re-exported for urls.py
 
 
 @schemas.list_templates

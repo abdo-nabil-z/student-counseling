@@ -1,0 +1,10 @@
+Dear {{ counselor.title }} {{ counselor.last_name }},
+
+Here is a summary of your upcoming confirmed appointments:
+
+{% for item in appointments %}
+- {{ item.student.full_name }} on {{ item.appointment.date }} from {{ item.appointment.start_time }} to {{ item.appointment.end_time }}
+{% endfor %}
+
+Best regards,
+The Consultation Team

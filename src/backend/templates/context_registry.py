@@ -21,15 +21,6 @@ from appointments.models import Appointment
 
 
 
-class TestmailContext(BaseModel):
-    counselor: CounselorContext
-    
-    @classmethod
-    def build(cls, counselor_id: int) -> "TestmailContext":
-        counselor = Counselor.objects.get(id=counselor_id)
-        return cls(counselor=CounselorContext.from_model(counselor))
-
-
 class CounselorOnlyContext(BaseModel):
     counselor: CounselorContext
 
@@ -136,20 +127,18 @@ class AppointmentMinutesContext(PDFContext):
         appointment = AppointmentContext.from_model(Appointment.objects.get(id=appointment_id))
         return cls(student=student, counselor=counselor, appointment=appointment)
 
-    
+
 class ExternalRecipientContext(BaseModel):
     recipient_email: str
-
+    
     @classmethod
     def build(cls, recipient_email: str) -> "ExternalRecipientContext":
         return cls(recipient_email=recipient_email)
 
 
-
 # ── Registry ────────────────────────────────────────────────────────────────
 # Add one entry here for every new Purpose value.
 PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
-    Purpose.TESTMAIL: TestmailContext,
     Purpose.STUDENT_INVITATION_MAIL: StudentAndBlocksContext,
     Purpose.STUDENT_REMINDER_MAIL: StudentAndBlocksContext,
     Purpose.FORCED_APPOINTMENT_ASSIGNMENT_MAIL: AppointmentStudentCounselorContext,
@@ -160,7 +149,7 @@ PURPOSE_CONTEXT_REGISTRY: dict[str, type[BaseModel]] = {
     Purpose.APPOINTMENT_MINUTES: AppointmentMinutesContext,
     Purpose.COUNSELOR_AVAILABILITY_REQUEST_MAIL: CounselorOnlyContext,
     Purpose.COUNSELOR_APPOINTMENTS_SUMMARY_MAIL: CounselorAppointmentsContext,
-    Purpose.GENERAL_MAIL: ExternalRecipientContext
+    Purpose.GENERAL_MAIL: ExternalRecipientContext,
 }
 
 

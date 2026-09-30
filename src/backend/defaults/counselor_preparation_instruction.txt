@@ -1,0 +1,10 @@
+Dear {{ counselor.title }} {{ counselor.last_name }},
+
+Please prepare for your upcoming consultation appointment with {{ student.full_name }} ({{ student.matriculation_number }}) on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} at {{ appointment.location }}.
+
+Student's course of studies: {{ student.course_of_studies }}
+Current semester: {{ student.current_study_semester }}
+Credit points: {{ student.credit_points }}
+
+Best regards,
+The Consultation Team
