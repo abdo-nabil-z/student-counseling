@@ -37,26 +37,64 @@ function SlotsPage() {
   }, [selectedId, reloadKey]);
 
   async function createSlot() {
+    if (saving) return;
+
+    setError(null);
+
     if (selectedId === "" || !date || !start || !end) {
-      alert("Pick a counselor and fill date, start and end time.");
+      setError("Select a counselor, date, start time, and end time.");
       return;
     }
+
+    if (start >= end) {
+      setError("End time must be after start time.");
+      return;
+    }
+
+    const counselorId = selectedId;
+
     setSaving(true);
+
     try {
-      await api.post(`/counselors/${selectedId}/slots/`, {
+      // Fetch the latest slots before checking for a duplicate.
+      const response = await api.get<Slot[]>(
+        `/counselors/${counselorId}/slots/`,
+      );
+
+      const duplicate = response.data.some(
+        (slot) =>
+          slot.date === date &&
+          slot.start_time.slice(0, 5) === start &&
+          slot.end_time.slice(0, 5) === end,
+      );
+
+      if (duplicate) {
+        window.alert(
+          "This counselor already has an availability slot " +
+            "on this date with the same start and end times.",
+        );
+        return;
+      }
+      await api.post(`/counselors/${counselorId}/slots/`, {
         date,
         start_time: start,
         end_time: end,
       });
+
       setDate("");
       setStart("");
       setEnd("");
-      setReloadKey((k) => k + 1);
-    } catch (err) {
-      const e = err as { response?: { data?: unknown }; message: string };
-      alert(
-        "Create failed: " +
-          (e.response?.data ? JSON.stringify(e.response.data) : e.message),
+      setReloadKey((current) => current + 1);
+    } catch (requestError) {
+      const error = requestError as {
+        response?: { data?: unknown };
+        message?: string;
+      };
+
+      setError(
+        error.response?.data
+          ? JSON.stringify(error.response.data)
+          : error.message || "Could not create the slot.",
       );
     } finally {
       setSaving(false);

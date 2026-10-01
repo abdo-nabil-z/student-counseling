@@ -218,7 +218,6 @@ function MailPage() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [counselors, setCounselors] = useState<Counselor[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
 
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
@@ -282,37 +281,28 @@ function MailPage() {
       api.get<Student[]>("/students/"),
       api.get<Counselor[]>("/counselors/"),
       api.get<Template[]>("/templates/"),
-      api.get<Appointment[]>("/appointments/"),
     ])
-      .then(
-        ([
-          studentResponse,
-          counselorResponse,
-          templateResponse,
-          appointmentResponse,
-        ]) => {
-          setStudents(studentResponse.data);
-          setCounselors(counselorResponse.data);
-          setTemplates(templateResponse.data);
-          setAppointments(appointmentResponse.data);
+      .then(([studentResponse, counselorResponse, templateResponse]) => {
+        setStudents(studentResponse.data);
+        setCounselors(counselorResponse.data);
+        setTemplates(templateResponse.data);
 
-          if (initialRouteSelection.targetType === "student") {
-            setSelectedStudents(
-              studentResponse.data.filter((student) =>
-                initialRouteSelection.targetIds?.includes(student.id),
-              ),
-            );
-          }
+        if (initialRouteSelection.targetType === "student") {
+          setSelectedStudents(
+            studentResponse.data.filter((student) =>
+              initialRouteSelection.targetIds?.includes(student.id),
+            ),
+          );
+        }
 
-          if (initialRouteSelection.targetType === "counselor") {
-            setSelectedCounselors(
-              counselorResponse.data.filter((counselor) =>
-                initialRouteSelection.targetIds?.includes(counselor.id),
-              ),
-            );
-          }
-        },
-      )
+        if (initialRouteSelection.targetType === "counselor") {
+          setSelectedCounselors(
+            counselorResponse.data.filter((counselor) =>
+              initialRouteSelection.targetIds?.includes(counselor.id),
+            ),
+          );
+        }
+      })
       .catch((requestError: unknown) => {
         setError(
           getErrorMessage(
@@ -346,41 +336,6 @@ function MailPage() {
       : selectedPurpose?.targetType === "external"
         ? externalRecipients.length
         : selectedStudents.length;
-
-  function studentHasSavedDocument(
-    student: Student,
-    documentType: ExistingDocumentType,
-  ): boolean {
-    if (documentType === "initial_study_plan") {
-      return Boolean(student.initial_study_plan);
-    }
-
-    if (documentType === "final_study_plan") {
-      return Boolean(student.final_study_plan);
-    }
-
-    return appointments.some((appointment) => {
-      const appointmentStudentId =
-        typeof appointment.student === "object"
-          ? appointment.student.id
-          : appointment.student;
-
-      return (
-        appointmentStudentId === student.id && Boolean(appointment.minutes)
-      );
-    });
-  }
-
-  function savedDocumentIsAvailable(
-    documentType: ExistingDocumentType,
-  ): boolean {
-    return (
-      selectedStudents.length > 0 &&
-      selectedStudents.every((student) =>
-        studentHasSavedDocument(student, documentType),
-      )
-    );
-  }
 
   async function generateDrafts() {
     if (!purpose || !selectedPurpose) {
@@ -983,40 +938,23 @@ function MailPage() {
                   </span>
                 </p>
                 <div className="attachment-options">
-                  {EXISTING_DOCUMENT_OPTIONS.map((option) => {
-                    const available = savedDocumentIsAvailable(option.value);
-
-                    return (
-                      <label
-                        key={option.value}
-                        className={
-                          available
-                            ? "saved-document-option saved-document-option--available"
-                            : "saved-document-option saved-document-option--unavailable"
+                  {EXISTING_DOCUMENT_OPTIONS.map((option) => (
+                    <label key={option.value}>
+                      <input
+                        type="checkbox"
+                        checked={existingDocumentTypes.includes(option.value)}
+                        onChange={(event) =>
+                          setExistingDocumentTypes((current) =>
+                            event.target.checked
+                              ? [...current, option.value]
+                              : current.filter((item) => item !== option.value),
+                          )
                         }
-                      >
-                        <input
-                          type="checkbox"
-                          disabled={!available}
-                          checked={
-                            available &&
-                            existingDocumentTypes.includes(option.value)
-                          }
-                          onChange={(event) =>
-                            setExistingDocumentTypes((current) =>
-                              event.target.checked
-                                ? [...current, option.value]
-                                : current.filter(
-                                    (item) => item !== option.value,
-                                  ),
-                            )
-                          }
-                        />
+                      />
 
-                        {option.label}
-                      </label>
-                    );
-                  })}
+                      {option.label}
+                    </label>
+                  ))}
                 </div>
 
                 <p className="attachment-group-title">
