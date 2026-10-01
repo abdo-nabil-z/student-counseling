@@ -233,31 +233,34 @@ function StudentsPage() {
     const doc = which === "initial" ? s.initial_study_plan : s.final_study_plan;
 
     const filePicker = (labelText: string, hint: string) => (
-      <label
-        title={hint}
-        style={{
-          cursor: "pointer",
-          color: "#5b5bef",
-          fontSize: "13px",
-          fontWeight: 500,
-        }}
-      >
-        {labelText}
+      <>
+        <button
+          type="button"
+          title={hint}
+          onClick={(event) => {
+            const input = event.currentTarget
+              .nextElementSibling as HTMLInputElement | null;
+
+            input?.click();
+          }}
+        >
+          {labelText}
+        </button>
 
         <input
           type="file"
           style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
+          onChange={(event) => {
+            const file = event.target.files?.[0];
 
-            if (f) {
-              uploadPlan(s.id, which, f);
+            if (file) {
+              uploadPlan(s.id, which, file);
             }
 
-            e.target.value = "";
+            event.target.value = "";
           }}
         />
-      </label>
+      </>
     );
 
     // A document already exists: show the filename and actions.
@@ -295,20 +298,12 @@ function StudentsPage() {
             {filePicker("Modify", "Modify study plan")}
 
             <button
-              type="button"
+              className="icon-btn icon-btn--danger"
+              title="Delete"
+              aria-label="Delete"
               onClick={() => deletePlan(doc.id)}
-              title="Delete study plan"
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                color: "#c0392b",
-                fontSize: "13px",
-                fontWeight: 500,
-              }}
             >
-              Delete
+              <TrashIcon />
             </button>
           </span>
         </div>
