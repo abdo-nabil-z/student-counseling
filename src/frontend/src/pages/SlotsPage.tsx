@@ -4,6 +4,16 @@ import api from "../api/client";
 import type { Counselor } from "../types/counselor";
 import type { Slot } from "../types/slots";
 
+function getTodayDate(): string {
+  const today = new Date();
+
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 function SlotsPage() {
   const [searchParams] = useSearchParams();
   const [counselors, setCounselors] = useState<Counselor[]>([]);
@@ -43,6 +53,11 @@ function SlotsPage() {
 
     if (selectedId === "" || !date || !start || !end) {
       setError("Select a counselor, date, start time, and end time.");
+      return;
+    }
+
+    if (date < getTodayDate()) {
+      window.alert("Availability slots cannot be created for a past date.");
       return;
     }
 
@@ -181,8 +196,9 @@ function SlotsPage() {
         <label>Date</label>
         <input
           type="date"
+          min={getTodayDate()}
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(event) => setDate(event.target.value)}
         />
         <label>Start Time</label>
         <input

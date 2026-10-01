@@ -5,7 +5,7 @@ import StudentImportPage from "./pages/StudentImportPage";
 import StudentsPage from "./pages/StudentsPage";
 import CounselorsPage from "./pages/CounselorsPage";
 import SlotsPage from "./pages/SlotsPage";
-import StudentMailPage from "./pages/StudentMailPage";
+//import StudentMailPage from "./pages/StudentMailPage";
 import CounselorMailPage from "./pages/CounselorMailPage";
 import AppointmentsPage from "./pages/AppointmentPage";
 import TemplatesPage from "./pages/TemplatesPage";
@@ -24,10 +24,7 @@ function App() {
           <Route path="students/import" element={<StudentImportPage />} />
 
           <Route path="students" element={<StudentsPage />} />
-          <Route
-            path="students/:studentId/mail"
-            element={<StudentMailPage />}
-          />
+
           <Route path="counselors" element={<CounselorsPage />} />
           <Route
             path="counselors/:counselorId/mail"

@@ -24,6 +24,9 @@ const STATUS_COLORS: Record<string, string> = {
   missed: "#dc2626",
 };
 
+// Only these statuses occupy a counselor's time (same rule as the backend).
+const ACTIVE_STATUSES = ["pending", "booked"];
+
 interface AppointmentPrefill {
   counselorId: number;
   slotId: number;
@@ -32,34 +35,68 @@ interface AppointmentPrefill {
   location: string;
 }
 
+interface ApiErrorBody {
+  error?: {
+    code?: string;
+    message?: string;
+    details?: unknown;
+  };
+}
+
+interface OverlapDetails {
+  overlapping_appointments?: unknown[];
+  can_override?: boolean;
+}
+
 interface AppointmentOverlapWarning {
   message: string;
   overlapCount: number;
 }
 
+function getApiError(error: unknown): ApiErrorBody["error"] | undefined {
+  return (error as { response?: { data?: ApiErrorBody } }).response?.data
+    ?.error;
+}
+
+/**
+ * Turns the backend's standard error shape
+ * { error: { code, message, details } } into readable text.
+ * Field errors in `details` are listed as "field: message".
+ */
+function getErrorMessage(error: unknown, fallback: string): string {
+  const apiError = getApiError(error);
+
+  if (!apiError) {
+    return error instanceof Error ? error.message : fallback;
+  }
+
+  const parts: string[] = [apiError.message ?? fallback];
+  const details = apiError.details;
+
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    Object.entries(details as Record<string, unknown>).forEach(
+      ([field, value]) => {
+        if (Array.isArray(value)) {
+          parts.push(`${field}: ${value.join(" ")}`);
+        } else if (typeof value === "string") {
+          parts.push(`${field}: ${value}`);
+        }
+      },
+    );
+  }
+
+  return parts.join(" — ");
+}
+
 function getAppointmentOverlapWarning(
   error: unknown,
 ): AppointmentOverlapWarning | null {
-  const apiError = (
-    error as {
-      response?: {
-        data?: {
-          error?: {
-            code?: string;
-            message?: string;
-            details?: {
-              overlapping_appointments?: unknown[];
-              can_override?: boolean;
-            };
-          };
-        };
-      };
-    }
-  ).response?.data?.error;
+  const apiError = getApiError(error);
+  const details = apiError?.details as OverlapDetails | undefined;
 
   if (
     apiError?.code !== "appointment_overlap_warning" ||
-    !apiError.details?.can_override
+    !details?.can_override
   ) {
     return null;
   }
@@ -68,23 +105,78 @@ function getAppointmentOverlapWarning(
     message:
       apiError.message ??
       "This appointment overlaps another active appointment.",
-    overlapCount: apiError.details.overlapping_appointments?.length ?? 0,
+    overlapCount: details.overlapping_appointments?.length ?? 0,
   };
+}
+
+/**
+ * Sends a create/update request. If the backend answers with an
+ * overlap warning, asks the user and repeats the request with
+ * allow_overlap: true. Returns false if the user cancelled.
+ */
+async function sendWithOverlapConfirm(
+  send: (extra: { allow_overlap?: boolean }) => Promise<unknown>,
+  actionLabel: string,
+): Promise<boolean> {
+  try {
+    await send({});
+    return true;
+  } catch (requestError: unknown) {
+    const warning = getAppointmentOverlapWarning(requestError);
+
+    if (!warning) {
+      throw requestError;
+    }
+
+    const confirmed = window.confirm(
+      `${warning.message}\n\n` +
+        `${warning.overlapCount} overlapping appointment(s) found. ` +
+        `${actionLabel} anyway?`,
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    await send({ allow_overlap: true });
+    return true;
+  }
 }
 
 function addMinutes(hhmm: string, mins: number): string {
   const [h, m] = hhmm.split(":").map(Number);
   const total = h * 60 + m + mins;
-  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(
+    total % 60,
+  ).padStart(2, "0")}`;
 }
+
 function minutesBetween(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
+
   return eh * 60 + em - (sh * 60 + sm);
 }
+
+/** True if date/start/end (HH:MM) lie completely inside the slot. */
+function fitsInSlot(
+  slot: Slot,
+  date: string,
+  start: string,
+  end: string,
+): boolean {
+  return (
+    slot.date === date &&
+    start >= slot.start_time.slice(0, 5) &&
+    end <= slot.end_time.slice(0, 5)
+  );
+}
+
 function idOf(v: number | { id: number }): number {
   return typeof v === "object" ? v.id : v;
 }
+
 function TrashIcon() {
   return (
     <svg
@@ -104,6 +196,16 @@ function TrashIcon() {
   );
 }
 
+function getTodayDate(): string {
+  const today = new Date();
+
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 function AppointmentPage() {
   const navigate = useNavigate();
   const routeLocation = useLocation();
@@ -117,17 +219,11 @@ function AppointmentPage() {
   const [counselorId, setCounselorId] = useState(
     prefill ? String(prefill.counselorId) : "",
   );
-
   const [slots, setSlots] = useState<Slot[]>([]);
-
   const [slotId, setSlotId] = useState(prefill ? String(prefill.slotId) : "");
-
   const [startTime, setStartTime] = useState(prefill?.startTime ?? "");
-
   const [endTime, setEndTime] = useState(prefill?.endTime ?? "");
-
   const [studentId, setStudentId] = useState("");
-
   const [location, setLocation] = useState(prefill?.location ?? "");
 
   const [loading, setLoading] = useState(true);
@@ -135,7 +231,7 @@ function AppointmentPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Edit-appointment modal state
+  // Edit appointment modal state
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [editCounselorId, setEditCounselorId] = useState("");
   const [editSlots, setEditSlots] = useState<Slot[]>([]);
@@ -157,7 +253,7 @@ function AppointmentPage() {
         setStudents(s.data);
         setAppointments(a.data);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(getErrorMessage(e, "Could not reload data.")));
   }
 
   useEffect(() => {
@@ -171,21 +267,25 @@ function AppointmentPage() {
         setStudents(s.data);
         setAppointments(a.data);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(getErrorMessage(e, "Could not load data.")))
       .finally(() => setLoading(false));
   }, []);
 
+  // Load the slots of the counselor selected in the booking form.
+  // (Clearing the list when no counselor is selected happens in onCounselorChange.)
   useEffect(() => {
     if (!counselorId) return;
+
     api
       .get<Slot[]>(`/counselors/${counselorId}/slots/`)
       .then((r) => setSlots(r.data))
       .catch(() => setSlots([]));
   }, [counselorId]);
 
-  // Fetch slots for whichever counselor is selected in the edit modal
+  // Load the slots of the counselor selected in the edit modal.
   useEffect(() => {
     if (!editing || !editCounselorId) return;
+
     api
       .get<Slot[]>(`/counselors/${editCounselorId}/slots/`)
       .then((r) => setEditSlots(r.data))
@@ -203,11 +303,17 @@ function AppointmentPage() {
     );
 
     setLocation(selectedCounselor?.office_address ?? "");
-    if (!v) setSlots([]);
+
+    if (!v) {
+      setSlots([]);
+    }
   }
+
   function onSlotChange(v: string) {
     setSlotId(v);
+
     const slot = slots.find((s) => String(s.id) === v);
+
     if (slot) {
       const s = slot.start_time.slice(0, 5);
       setStartTime(s);
@@ -219,31 +325,46 @@ function AppointmentPage() {
   }
 
   const selectedSlot = slots.find((s) => String(s.id) === slotId) || null;
+
   const apptEnd = (a: Appointment) =>
     addMinutes(a.start_time.slice(11, 16), a.duration_minutes);
+
+  // Only active appointments block time in a slot.
   const bookedInSlot = appointments
-    .filter((a) => a.slot && a.slot.id === Number(slotId))
+    .filter(
+      (a) =>
+        a.slot &&
+        a.slot.id === Number(slotId) &&
+        ACTIVE_STATUSES.includes(a.status),
+    )
     .map((a) => `${a.start_time.slice(11, 16)}–${apptEnd(a)}`);
+
+  // A student can have only one appointment (one-to-one in the backend).
   const availableStudents = students.filter(
     (s) => !appointments.some((a) => idOf(a.student) === s.id),
   );
 
   const studentObj = (val: number | Student) =>
     typeof val === "object" ? val : students.find((x) => x.id === val);
+
   const counselorObj = (val: number | Counselor) =>
     typeof val === "object" ? val : counselors.find((x) => x.id === val);
+
   const studentLabel = (val: number | Student) => {
     const s = studentObj(val);
     return s ? `${s.first_name} ${s.last_name}` : `#${String(val)}`;
   };
+
   const counselorLabel = (val: number | Counselor) => {
     const c = counselorObj(val);
     return c ? `${c.title} ${c.last_name}` : `#${String(val)}`;
   };
 
+  /** Open the central Mail page with the appointment's student selected. */
   function mailStudent(a: Appointment) {
     const s = studentObj(a.student);
     if (!s) return;
+
     navigate("/mail", {
       state: {
         targetType: "student",
@@ -251,22 +372,13 @@ function AppointmentPage() {
       },
     });
   }
-  // function mailCounselor(a: Appointment) {
-  //   const c = counselorObj(a.counselor);
-  //   if (!c) return;
-  //   navigate("/mail", {
-  //     state: {
-  //       targetType: "counselor",
-  //       targetIds: [c.id],
-  //     },
-  //   });
-  // }
 
   function openEdit(a: Appointment) {
     setEditing(a);
     setEditError(null);
+
     setEditCounselorId(String(idOf(a.counselor)));
-    setEditSlots([]); // refetched by the effect above once editCounselorId is set
+    setEditSlots([]); // refetched by the effect above
     setEditSlotId(a.slot ? String(a.slot.id) : "");
     setEditDate(a.start_time.slice(0, 10));
     setEditStartTime(a.start_time.slice(11, 16));
@@ -289,7 +401,9 @@ function AppointmentPage() {
 
   function onEditSlotChange(v: string) {
     setEditSlotId(v);
+
     const slot = editSlots.find((s) => String(s.id) === v);
+
     if (slot) {
       setEditDate(slot.date);
       setEditStartTime(slot.start_time.slice(0, 5));
@@ -298,21 +412,50 @@ function AppointmentPage() {
 
   async function saveEdit() {
     if (!editing) return;
+
     if (!editCounselorId || !editDate || !editStartTime || !editDuration) {
       setEditError("Counselor, date, start time, and duration are required.");
       return;
     }
+
+    const originalDate = editing.start_time.slice(0, 10);
+
+    if (editDate !== originalDate && editDate < getTodayDate()) {
+      window.alert("An appointment cannot be moved to a past date.");
+      return;
+    }
+
     const duration = Number(editDuration);
+
     if (!Number.isFinite(duration) || duration <= 0) {
       setEditError("Duration must be a positive number of minutes.");
       return;
     }
+
+    // The backend rejects an appointment that does not fit inside its slot.
+    // If it no longer fits, offer to save it without a slot instead.
+    let slotValue: number | null = editSlotId ? Number(editSlotId) : null;
+    const editSlot = editSlots.find((s) => String(s.id) === editSlotId);
+    const editEnd = addMinutes(editStartTime, duration);
+
+    if (editSlot && !fitsInSlot(editSlot, editDate, editStartTime, editEnd)) {
+      const outside = window.confirm(
+        `The time ${editDate} ${editStartTime}–${editEnd} is outside the ` +
+          `selected slot (${editSlot.date} ${editSlot.start_time.slice(0, 5)}–` +
+          `${editSlot.end_time.slice(0, 5)}).\n\n` +
+          `Save it as an appointment outside the counselor's availability?`,
+      );
+
+      if (!outside) return;
+      slotValue = null;
+    }
+
     setEditSaving(true);
     setEditError(null);
 
     const payload = {
       counselor: Number(editCounselorId),
-      slot: editSlotId ? Number(editSlotId) : null,
+      slot: slotValue,
       start_time: `${editDate}T${editStartTime}:00`,
       duration_minutes: duration,
       location: editLocation || null,
@@ -320,36 +463,19 @@ function AppointmentPage() {
     };
 
     try {
-      try {
-        await api.patch(`/appointments/${editing.id}/`, payload);
-      } catch (requestError: unknown) {
-        const warning = getAppointmentOverlapWarning(requestError);
+      const saved = await sendWithOverlapConfirm(
+        (extra) =>
+          api.patch(`/appointments/${editing.id}/`, { ...payload, ...extra }),
+        "Save",
+      );
 
-        if (!warning) throw requestError;
-
-        const confirmed = window.confirm(
-          `${warning.message}\n\n` +
-            `${warning.overlapCount} overlapping appointment(s) found. ` +
-            `Save anyway?`,
-        );
-
-        if (!confirmed) return;
-
-        await api.patch(`/appointments/${editing.id}/`, {
-          ...payload,
-          allow_overlap: true,
-        });
-      }
+      if (!saved) return;
 
       setEditing(null);
       reloadAll();
     } catch (e) {
-      const err = e as { response?: { data?: unknown }; message: string };
       setEditError(
-        "Could not save changes: " +
-          (err.response?.data
-            ? JSON.stringify(err.response.data)
-            : err.message),
+        "Could not save changes: " + getErrorMessage(e, "Unknown error."),
       );
     } finally {
       setEditSaving(false);
@@ -360,35 +486,42 @@ function AppointmentPage() {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("name", file.name);
+
     try {
       await api.post(`/appointments/${appointmentId}/minutes/`, fd);
       reloadAll();
     } catch (err) {
-      alert("Minutes upload failed: " + (err as Error).message);
+      alert("Minutes upload failed: " + getErrorMessage(err, "Unknown error."));
     }
   }
+
   async function deleteDoc(docId: number) {
     if (!window.confirm("Delete this document?")) return;
+
     try {
       await api.delete(`/documents/${docId}/`);
       reloadAll();
     } catch (err) {
-      alert("Delete failed: " + (err as Error).message);
+      alert("Delete failed: " + getErrorMessage(err, "Unknown error."));
     }
   }
 
   async function deleteAppointment(a: Appointment) {
     if (
       !window.confirm(
-        `Delete the appointment for ${studentLabel(a.student)}? This cannot be undone.`,
+        `Delete the appointment for ${studentLabel(
+          a.student,
+        )}? This cannot be undone.`,
       )
-    )
+    ) {
       return;
+    }
+
     try {
       await api.delete(`/appointments/${a.id}/`);
       reloadAll();
     } catch (err) {
-      alert("Delete failed: " + (err as Error).message);
+      alert("Delete failed: " + getErrorMessage(err, "Unknown error."));
     }
   }
 
@@ -404,86 +537,86 @@ function AppointmentPage() {
       setFormError("Pick a counselor, slot, student, and start/end time.");
       return;
     }
+
+    if (selectedSlot.date < getTodayDate()) {
+      window.alert("Appointments cannot be booked for a past date.");
+      return;
+    }
+
     const duration = minutesBetween(startTime, endTime);
+
     if (duration <= 0) {
       setFormError("End time must be after start time.");
       return;
     }
-    const slotStart = selectedSlot.start_time.slice(0, 5);
-    const slotEnd = selectedSlot.end_time.slice(0, 5);
-    if (startTime < slotStart || endTime > slotEnd) {
+
+    // The backend only accepts a slot if the appointment fits inside it.
+    // An appointment outside the slot is sent with slot = null.
+    let slotValue: number | null = Number(slotId);
+
+    if (!fitsInSlot(selectedSlot, selectedSlot.date, startTime, endTime)) {
+      const slotStart = selectedSlot.start_time.slice(0, 5);
+      const slotEnd = selectedSlot.end_time.slice(0, 5);
+
       if (
         !window.confirm(
-          `The time ${startTime}–${endTime} is outside the slot window (${slotStart}–${slotEnd}). Create it anyway?`,
+          `The time ${startTime}–${endTime} is outside the slot window ` +
+            `(${slotStart}–${slotEnd}). Create it anyway, outside the ` +
+            `counselor's availability?`,
         )
-      )
+      ) {
         return;
+      }
+
+      slotValue = null;
     }
+
     setSaving(true);
     setFormError(null);
 
     const payload = {
       student: Number(studentId),
       counselor: Number(counselorId),
-      slot: Number(slotId),
+      slot: slotValue,
       start_time: `${selectedSlot.date}T${startTime}:00`,
       duration_minutes: duration,
       location: location || null,
     };
 
     try {
-      try {
-        await api.post("/appointments/create-appointment/", payload);
-      } catch (requestError: unknown) {
-        const warning = getAppointmentOverlapWarning(requestError);
+      const created = await sendWithOverlapConfirm(
+        (extra) =>
+          api.post("/appointments/create-appointment/", {
+            ...payload,
+            ...extra,
+          }),
+        "Create",
+      );
 
-        if (!warning) throw requestError;
-
-        const confirmed = window.confirm(
-          `${warning.message}\n\n` +
-            `${warning.overlapCount} overlapping appointment(s) found. ` +
-            `Create anyway?`,
-        );
-
-        if (!confirmed) return;
-
-        await api.post("/appointments/create-appointment/", {
-          ...payload,
-          allow_overlap: true,
-        });
-      }
+      if (!created) return;
 
       const createdStudent = students.find((s) => s.id === Number(studentId));
-      const createdDate = selectedSlot.date;
-      const createdTime = startTime;
-      const createdPlace = location || "";
 
       setStudentId("");
-      setLocation("");
       reloadAll();
 
+      // Offer to send the invitation from the central Mail page.
       if (
         createdStudent &&
         window.confirm(
           `Appointment created for ${createdStudent.first_name} ${createdStudent.last_name}. Send the invitation email now?`,
         )
       ) {
-        navigate(`/students/${createdStudent.id}/mail`, {
+        navigate("/mail", {
           state: {
-            student: createdStudent,
-            date: createdDate,
-            time: createdTime,
-            place: createdPlace,
+            targetType: "student",
+            targetIds: [createdStudent.id],
           },
         });
       }
     } catch (e) {
-      const err = e as { response?: { data?: unknown }; message: string };
       setFormError(
-        "Could not create appointment: " +
-          (err.response?.data
-            ? JSON.stringify(err.response.data)
-            : err.message),
+        "Could not create appointment: " + getErrorMessage(e, "Unknown error."),
       );
     } finally {
       setSaving(false);
@@ -492,11 +625,13 @@ function AppointmentPage() {
 
   function DocCell({ doc }: { doc: DocumentInfo | null | undefined }) {
     if (!doc) return <>—</>;
+
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <a href={doc.download_url} target="_blank" rel="noreferrer">
           {doc.name}
         </a>
+
         <button
           className="icon-btn icon-btn--danger"
           title="Delete document"
@@ -511,6 +646,7 @@ function AppointmentPage() {
   return (
     <section>
       <h2>Appointments</h2>
+
       {loading && <p>Loading…</p>}
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
 
@@ -538,14 +674,17 @@ function AppointmentPage() {
                   <th>Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {appointments.length === 0 && (
                   <tr>
                     <td colSpan={11}>No appointments yet.</td>
                   </tr>
                 )}
+
                 {appointments.map((a) => {
                   const s = studentObj(a.student);
+
                   return (
                     <tr key={a.id}>
                       <td>{studentLabel(a.student)}</td>
@@ -581,6 +720,7 @@ function AppointmentPage() {
                             <br />
                           </>
                         )}
+
                         <label className="icon-btn" title="Upload minutes PDF">
                           {a.minutes ? "Replace" : "Upload"}
                           <input
@@ -595,20 +735,9 @@ function AppointmentPage() {
                         </label>
                       </td>
                       <td>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 4,
-                          }}
-                        >
-                          <button onClick={() => mailStudent(a)}>
-                            Send Mail
-                          </button>
-                          {/* <button onClick={() => mailCounselor(a)}>
-                            Mail counselor
-                          </button> */}
-                        </div>
+                        <button onClick={() => mailStudent(a)}>
+                          Send Mail
+                        </button>
                       </td>
                       <td>
                         <div
@@ -639,6 +768,7 @@ function AppointmentPage() {
             style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}
           >
             <h3>Book a new appointment</h3>
+
             <label>Counselor</label>
             <select
               value={counselorId}
@@ -660,7 +790,11 @@ function AppointmentPage() {
             >
               <option value="">— select —</option>
               {slots.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option
+                  key={s.id}
+                  value={s.id}
+                  disabled={s.date < getTodayDate()}
+                >
                   {s.date} · {s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}
                 </option>
               ))}
@@ -682,6 +816,7 @@ function AppointmentPage() {
                   disabled={!slotId}
                 />
               </div>
+
               <div style={{ flex: 1 }}>
                 <label>End time</label>
                 <input
@@ -692,6 +827,7 @@ function AppointmentPage() {
                 />
               </div>
             </div>
+
             {startTime && endTime && minutesBetween(startTime, endTime) > 0 && (
               <p style={{ fontSize: 13, color: "#666" }}>
                 Duration: {minutesBetween(startTime, endTime)} min
@@ -719,6 +855,7 @@ function AppointmentPage() {
             />
 
             {formError && <p style={{ color: "red" }}>{formError}</p>}
+
             <div style={{ marginTop: "1rem" }}>
               <button onClick={createAppointment} disabled={saving}>
                 {saving ? "Creating…" : "Create appointment"}
@@ -764,10 +901,12 @@ function AppointmentPage() {
                   <label>Date</label>
                   <input
                     type="date"
+                    min={getTodayDate()}
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
                   />
                 </div>
+
                 <div style={{ flex: 1 }}>
                   <label>Start time</label>
                   <input
@@ -776,6 +915,7 @@ function AppointmentPage() {
                     onChange={(e) => setEditStartTime(e.target.value)}
                   />
                 </div>
+
                 <div style={{ flex: 1 }}>
                   <label>Duration (min)</label>
                   <input
