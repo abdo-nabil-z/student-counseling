@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from datetime import date, time, timedelta
 
 from django.utils import timezone
@@ -12,6 +12,11 @@ class AppointmentContext(BaseModel):
     end_time: time
     location: str
     status: str
+
+    @field_serializer("start_time", "end_time")
+    def serialize_time(self, value: time) -> str:
+        # templates should only ever show hours:minutes, never seconds
+        return value.strftime("%H:%M")
 
     @classmethod
     def from_model(cls, appointment: Appointment) -> "AppointmentContext":

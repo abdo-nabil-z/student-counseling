@@ -1,7 +1,7 @@
 from datetime import date, time
 
 from django.utils import timezone
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from counselors.models import Counselor
 from counselors.services.slot_status import (
@@ -14,6 +14,11 @@ class SlotContext(BaseModel):
     date: date
     start_time: time
     end_time: time
+
+    @field_serializer("start_time", "end_time")
+    def serialize_time(self, value: time) -> str:
+        # templates should only ever show hours:minutes, never seconds
+        return value.strftime("%H:%M")
 
 
 def _free_slot_contexts(status_data):
