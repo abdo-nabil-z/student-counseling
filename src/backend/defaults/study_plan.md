@@ -16,7 +16,7 @@
 
 In the following field, please enter the planned courses in the correct order, grouping by semester and annotated with obtained Credit Points.
 {% textbox label="Planned Courses" lines=20 %}
-
+{% vspace lines=5 %}
 {% textbox label="Notes and Comments" lines=30 %}
 
 {% vspace lines=5 %}

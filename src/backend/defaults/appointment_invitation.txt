@@ -1,8 +1,36 @@
-Dear {{ student.first_name }} {{ student.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-Your consultation appointment with {{ counselor.title }} {{ counselor.full_name }} has been confirmed for {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} at {{ appointment.location }}.
+Hallo {{ student.first_name }} {{ student.last_name }},
 
-We look forward to seeing you.
+Ihr Termin zur Studienberatung bei {{ counselor.title }} {{ counselor.full_name }} wurde bestaetigt:
+
+Datum: {{ appointment.date }}
+Uhrzeit: {{ appointment.start_time }} - {{ appointment.end_time }}
+Ort: {{ appointment.location }}
+
+Bitte senden Sie uns, falls noch nicht geschehen, mindestens eine Woche vor dem Termin einen Entwurf Ihres Studienplans fuer die kommenden vier Semester sowie, falls vorhanden, Ihren aktuellen Leistungsnachweis.
+
+Wir freuen uns auf das Gespraech mit Ihnen.
+
+Viele Gruesse
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Hello {{ student.first_name }} {{ student.last_name }},
+
+Your study counseling appointment with {{ counselor.title }} {{ counselor.full_name }} has been confirmed:
+
+Date: {{ appointment.date }}
+Time: {{ appointment.start_time }} - {{ appointment.end_time }}
+Location: {{ appointment.location }}
+
+If you have not already done so, please send us a draft of your study plan for the next four semesters, as well as your current transcript of records (if available), at least one week before the appointment.
+
+We look forward to meeting with you.
 
 Best regards,
-The Consultation Team
+Helge Parzyjegla
+Department of Computer Science

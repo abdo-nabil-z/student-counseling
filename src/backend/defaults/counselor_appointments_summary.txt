@@ -1,10 +1,32 @@
-Dear {{ counselor.title }} {{ counselor.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-Here is a summary of your upcoming confirmed appointments:
+Hallo {{ counselor.title }} {{ counselor.last_name }},
+
+hier ist eine Uebersicht Ihrer bestaetigten Beratungstermine:
 
 {% for item in appointments %}
-- {{ item.student.full_name }} on {{ item.appointment.date }} from {{ item.appointment.start_time }} to {{ item.appointment.end_time }}
+- {{ item.student.full_name }} ({{ item.student.matriculation_number }}): {{ item.appointment.date }}, {{ item.appointment.start_time }} - {{ item.appointment.end_time }}, {{ item.appointment.location }}
 {% endfor %}
 
-Best regards,
-The Consultation Team
+Die Vorbereitungsunterlagen zu jedem Termin erhalten Sie rechtzeitig per separater E-Mail.
+
+Vielen Dank fuer Ihre Unterstuetzung,
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Hello {{ counselor.title }} {{ counselor.last_name }},
+
+Here is an overview of your confirmed counseling appointments:
+
+{% for item in appointments %}
+- {{ item.student.full_name }} ({{ item.student.matriculation_number }}): {{ item.appointment.date }}, {{ item.appointment.start_time }} - {{ item.appointment.end_time }}, {{ item.appointment.location }}
+{% endfor %}
+
+You will receive the preparation materials for each appointment in a separate email in due time.
+
+Thank you for your support,
+Helge Parzyjegla
+Department of Computer Science

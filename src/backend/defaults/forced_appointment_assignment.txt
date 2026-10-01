@@ -1,8 +1,32 @@
-Dear {{ student.first_name }} {{ student.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-You have been assigned a consultation appointment with {{ counselor.title }} {{ counselor.full_name }} on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} at {{ appointment.location }}.
+Hallo {{ student.first_name }} {{ student.last_name }},
 
-If this time does not work for you, please contact us as soon as possible.
+leider haben wir bisher nichts von Ihnen gehoert, weshalb wir Ihnen den folgenden Termin zur verpflichtenden Studienberatung zuweisen.
+
+Ihre Studienberatung findet am {{ appointment.date }} von {{ appointment.start_time }} bis {{ appointment.end_time }} bei {{ counselor.title }} {{ counselor.full_name }} statt. Ort: {{ appointment.location }}.
+
+Bitte lassen Sie uns bis spaetestens eine Woche vor dem Termin Ihren Studienplan fuer die kommenden vier Semester sowie, falls vorhanden, Ihren aktuellen Leistungsnachweis zukommen.
+
+Falls dieser Termin fuer Sie nicht moeglich ist, setzen Sie sich bitte umgehend mit uns in Verbindung.
+
+Viele Gruesse
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Hello {{ student.first_name }} {{ student.last_name }},
+
+Unfortunately, we have not heard from you yet, which is why we are assigning you the following appointment for your mandatory counseling session.
+
+Your study counseling will take place on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} with {{ counselor.title }} {{ counselor.full_name }}. Location: {{ appointment.location }}.
+
+Please send us your study plan for the next four semesters, as well as your current transcript of records (if available), no later than one week before the appointment.
+
+If this time does not work for you, please contact us immediately.
 
 Best regards,
-The Consultation Team
+Helge Parzyjegla
+Department of Computer Science

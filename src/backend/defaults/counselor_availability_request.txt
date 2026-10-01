@@ -1,6 +1,24 @@
-Dear {{ counselor.title }} {{ counselor.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-Please provide your availability for upcoming student consultations at your office ({{ counselor.office_address }}, {{ counselor.department }}).
+Hallo {{ counselor.title }} {{ counselor.last_name }},
 
-Best regards,
-The Consultation Team
+fuer die anstehenden verpflichtenden Studienberatungen bitten wir Sie um Ihre Verfuegbarkeit.
+
+Bitte teilen Sie uns ein oder mehrere Zeitfenster von jeweils 2-3 Stunden mit, in denen Sie Beratungsgespraeche anbieten koennen (z. B. an Ihrem Buero {{ counselor.office_address }}, {{ counselor.department }}). Wir unterteilen die von Ihnen gemeldeten Zeitfenster anschliessend in 30-minuetige Einzeltermine.
+
+Vielen Dank fuer Ihre Unterstuetzung,
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Hello {{ counselor.title }} {{ counselor.last_name }},
+
+For the upcoming mandatory study counseling sessions, we would like to ask for your availability.
+
+Please let us know one or more time blocks of about 2-3 hours during which you could offer counseling sessions (e.g. at your office {{ counselor.office_address }}, {{ counselor.department }}). We will split the time blocks you provide into individual 30-minute appointments.
+
+Thank you for your support,
+Helge Parzyjegla
+Department of Computer Science

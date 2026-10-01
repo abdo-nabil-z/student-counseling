@@ -1,10 +1,48 @@
-Dear {{ student.first_name }} {{ student.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-You are invited to schedule a consultation appointment. Please choose one of the following available time slots and reply to this email with your preference:
+Einladung zur verpflichtenden Studienberatung
+
+Hallo {{ student.first_name }} {{ student.last_name }},
+
+aufgrund von Verzoegerungen in Ihrem Studienverlauf laedt Sie der Bereich Informatik gemaess den Studienbestimmungen zu einer verpflichtenden Studienberatung ein.
+
+In diesem Gespraech moechten wir Ihren bisherigen Studienfortschritt erfassen und gemeinsam mit Ihnen einen individuellen Studienplan erarbeiten, mit dem Sie Ihr Studium erfolgreich abschliessen koennen. Ein Beratungsgespraech dauert ca. 30 Minuten.
+
+Bitte senden Sie uns mindestens eine Woche vor dem Beratungstermin per E-Mail einen Entwurf Ihres Studienplans fuer die kommenden vier Semester sowie, falls vorhanden, Ihren aktuellen Leistungsnachweis. Daraus sollte hervorgehen, in welchem Semester Sie welche der noch fehlenden Kurse belegen und absolvieren moechten sowie wann Sie planen, Ihre Abschlussarbeit zu schreiben.
+
+Fuer die Beratungsgespraeche stehen folgende 30-minuetige Termine zur Verfuegung. Die Termine werden in der Reihenfolge des Eingangs vergeben:
 
 {% for slot in available_slots.slots %}
-- {{ slot.date }} from {{ slot.start_time }} to {{ slot.end_time }}
+- {{ slot.date }}: {{ slot.start_time }} - {{ slot.end_time }}
 {% endfor %}
 
+Bitte waehlen Sie einen Wunschtermin sowie eine Alternative aus dem oben genannten Angebot und teilen Sie uns Ihre Auswahl innerhalb der naechsten zwei Wochen per E-Mail mit.
+
+Viele Gruesse
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Invitation for Mandatory Study Counseling
+
+Dear {{ student.first_name }} {{ student.last_name }},
+
+Due to delays in your study progress, the Department of Computer Science invites you, in accordance with the study regulations, to a mandatory study counseling session.
+
+In this meeting, we would like to review your study progress and work with you to create an individual study plan that will help you successfully complete your studies. Each counseling session lasts approximately 30 minutes.
+
+Please email us a draft of your study plan for the next four semesters, as well as your current transcript of records (if available), at least one week before the appointment. The plan should indicate in which semesters you intend to take and complete the remaining courses and when you plan to write your thesis.
+
+The following 30-minute consultation slots are available. Appointments will be allocated in the order of requests received:
+
+{% for slot in available_slots.slots %}
+- {{ slot.date }}: {{ slot.start_time }} - {{ slot.end_time }}
+{% endfor %}
+
+Please select one preferred date and one alternative from the options above and let us know your choice by email within the next two weeks.
+
 Best regards,
-The Consultation Team
+Helge Parzyjegla
+Department of Computer Science

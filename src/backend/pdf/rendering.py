@@ -46,7 +46,13 @@ table    { border-collapse: collapse; border-spacing: 0; width: 100%; margin: 8p
 th, td   { border: 0.75pt solid #000; padding: 3pt 6pt; text-align: left; }
 th       { font-weight: bold; }
 
-.tf-block    { margin-bottom: 10pt; }
+.tf-block    {
+  margin-bottom: 10pt;
+  /* keep the label glued to its field: never let a page break fall between
+     them, and never split the field itself across two pages */
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+}
 .tf-label    { font-weight: bold; margin-bottom: 3pt; font-size: 0.9em; }
 .form-textfield {
   appearance: auto;
@@ -88,7 +94,11 @@ th       { font-weight: bold; }
   outline: 1px solid black;
 }
 
-.sig-block       { margin-bottom: 10pt; }
+.sig-block       {
+  margin-bottom: 10pt;
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+}
 .sig-placeholder {
   border: 1pt dashed #888;
   background: #fafafa;

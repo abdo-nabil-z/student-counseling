@@ -1,10 +1,32 @@
-Dear {{ counselor.title }} {{ counselor.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-Please prepare for your upcoming consultation appointment with {{ student.full_name }} ({{ student.matriculation_number }}) on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} at {{ appointment.location }}.
+Hallo {{ counselor.title }} {{ counselor.last_name }},
 
-Student's course of studies: {{ student.course_of_studies }}
+zur Vorbereitung auf Ihr Beratungsgespraech mit {{ student.full_name }} ({{ student.matriculation_number }}) am {{ appointment.date }} von {{ appointment.start_time }} bis {{ appointment.end_time }} ({{ appointment.location }}) finden Sie im Folgenden die wichtigsten Informationen:
+
+Studiengang: {{ student.course_of_studies }}
+Aktuelles Fachsemester: {{ student.current_study_semester }}
+Erreichte Leistungspunkte: {{ student.credit_points }}
+
+Sofern vorhanden, sind der Studienplan und der Leistungsnachweis der/des Studierenden sowie das Formular fuer das Beratungsprotokoll dieser E-Mail beigefuegt. Bitte bringen Sie das Formular ausgefuellt und unterschrieben (digital oder in Papierform) zu dem Gespraech mit bzw. senden Sie es im Anschluss an uns zurueck.
+
+Vielen Dank fuer Ihre Unterstuetzung,
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Hello {{ counselor.title }} {{ counselor.last_name }},
+
+To help you prepare for your counseling session with {{ student.full_name }} ({{ student.matriculation_number }}) on {{ appointment.date }} from {{ appointment.start_time }} to {{ appointment.end_time }} ({{ appointment.location }}), please find the key information below:
+
+Course of studies: {{ student.course_of_studies }}
 Current semester: {{ student.current_study_semester }}
-Credit points: {{ student.credit_points }}
+Credit points achieved: {{ student.credit_points }}
 
-Best regards,
-The Consultation Team
+If available, the student's study plan and transcript of records, as well as the counseling minutes form, are attached to this email. Please complete and sign the form (digitally or on paper) and return it to us after the session.
+
+Thank you for your support,
+Helge Parzyjegla
+Department of Computer Science

@@ -1,10 +1,36 @@
-Dear {{ student.first_name }} {{ student.last_name }},
+[Deutsche Fassung - englische Fassung siehe unten]
 
-This is a friendly reminder that you have not yet booked a consultation appointment. Please choose one of the following available time slots and reply to this email with your preference:
+Hallo {{ student.first_name }} {{ student.last_name }},
+
+dies ist eine freundliche Erinnerung, einen Termin fuer die verpflichtende Studienberatung mit uns zu vereinbaren.
+
+Die folgenden 30-minuetigen Termine stehen aktuell noch zur Verfuegung:
 
 {% for slot in available_slots.slots %}
-- {{ slot.date }} from {{ slot.start_time }} to {{ slot.end_time }}
+- {{ slot.date }}: {{ slot.start_time }} - {{ slot.end_time }}
 {% endfor %}
 
-Best regards,
-The Consultation Team
+Falls Sie sich nicht innerhalb der naechsten zwei Wochen bei uns melden, muessen wir Ihnen einen Termin zuweisen.
+
+Vielen Dank,
+Helge Parzyjegla
+Bereich Informatik
+
+
+~~~ English text below ~~~
+
+Hello {{ student.first_name }} {{ student.last_name }},
+
+This is a friendly reminder to arrange an appointment for your mandatory study counseling.
+
+The following 30-minute slots are currently still available:
+
+{% for slot in available_slots.slots %}
+- {{ slot.date }}: {{ slot.start_time }} - {{ slot.end_time }}
+{% endfor %}
+
+If you do not get in touch with us within the next two weeks, we will have to assign you an appointment.
+
+Many thanks,
+Helge Parzyjegla
+Department of Computer Science
